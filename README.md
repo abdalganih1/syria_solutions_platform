@@ -1371,3 +1371,2685 @@ php artisan make:seeder BadgesSeeder
 
 
 
+ دعنا نجهز ملفات تلقيم البيانات (Seeders) بناءً على هيكل قاعدة البيانات النهائي الذي قدمته. سنتّبع الترتيب المنطقي لضمان عدم وجود مشاكل في المفاتيح الخارجية عند التشغيل.
+
+أولاً، قم بإنشاء ملفات الـ Seeder باستخدام الأوامر التي ذكرناها:
+
+```bash
+php artisan make:seeder CountriesSeeder
+php artisan make:seeder CitiesSeeder
+php artisan make:seeder AddressesSeeder
+php artisan make:seeder ProblemCategoriesSeeder
+php artisan make:seeder AccountsSeeder
+php artisan make:seeder UserProfilesSeeder
+php artisan make:seeder OrganizationProfilesSeeder
+php artisan make:seeder ProblemsSeeder
+php artisan make:seeder CommentsSeeder
+php artisan make:seeder CommentVotesSeeder
+php artisan make:seeder BadgesSeeder
+php artisan make:seeder AccountBadgesSeeder
+php artisan make:seeder SolutionsSeeder
+php artisan make:seeder OrganizationCategoryInterestsSeeder
+```
+
+الآن، سنملأ محتوى هذه الملفات.
+
+**1. ملف `database/seeders/DatabaseSeeder.php`**
+
+هذا هو الملف الرئيسي الذي سيستدعي جميع الـ Seeders الأخرى بالترتيب الصحيح.
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    /**
+     * Seed the application's database.
+     */
+    public function run(): void
+    {
+        // Order matters due to foreign key constraints
+        $this->call([
+            CountriesSeeder::class,
+            CitiesSeeder::class,
+            AddressesSeeder::class, // Addresses need Cities
+            ProblemCategoriesSeeder::class,
+            AccountsSeeder::class, // Accounts needed for Profiles, Problems, Comments, Votes
+            UserProfilesSeeder::class, // UserProfiles need Accounts and Addresses
+            OrganizationProfilesSeeder::class, // OrganizationProfiles need Accounts and Addresses
+            BadgesSeeder::class, // Badges are independent
+            ProblemsSeeder::class, // Problems need Accounts and ProblemCategories
+            CommentsSeeder::class, // Comments need Accounts and Problems
+            CommentVotesSeeder::class, // CommentVotes need Accounts and Comments
+            SolutionsSeeder::class, // Solutions need Comments and OrganizationProfiles
+            AccountBadgesSeeder::class, // AccountBadges need Accounts and Badges
+            OrganizationCategoryInterestsSeeder::class, // Needs OrganizationProfiles and ProblemCategories
+        ]);
+    }
+}
+```
+
+**2. ملف `database/seeders/CountriesSeeder.php`**
+
+لإضافة بعض الدول الأولية.
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use App\Models\Country; // تأكد من استخدام النموذج الصحيح
+
+class CountriesSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // يمكنك مسح الجدول قبل الإضافة لتجنب التكرار إذا كنت تعيد تشغيل Seeder
+        // DB::table('countries')->truncate(); // استخدم truncate بحذر في الإنتاج
+
+        $countries = [
+            ['name' => 'Syria', 'code' => 'SY'],
+            ['name' => 'Turkey', 'code' => 'TR'],
+            ['name' => 'Lebanon', 'code' => 'LB'],
+            ['name' => 'Jordan', 'code' => 'JO'],
+            ['name' => 'Germany', 'code' => 'DE'], // مثال لدولة في الخارج
+            ['name' => 'Egypt', 'code' => 'EG'],
+        ];
+
+        foreach ($countries as $country) {
+            Country::firstOrCreate(['code' => $country['code']], $country);
+        }
+    }
+}
+```
+
+**3. ملف `database/seeders/CitiesSeeder.php`**
+
+لإضافة بعض المدن وربطها بالدول.
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use App\Models\City;
+use App\Models\Country;
+
+class CitiesSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // DB::table('cities')->truncate();
+
+        $syria = Country::where('code', 'SY')->first();
+        $turkey = Country::where('code', 'TR')->first();
+        $lebanon = Country::where('code', 'LB')->first();
+        $jordan = Country::where('code', 'JO')->first();
+        $germany = Country::where('code', 'DE')->first();
+        $egypt = Country::where('code', 'EG')->first();
+
+
+        $cities = [];
+
+        if ($syria) {
+            $cities[] = ['name' => 'Damascus', 'country_id' => $syria->id];
+            $cities[] = ['name' => 'Aleppo', 'country_id' => $syria->id];
+            $cities[] = ['name' => 'Homs', 'country_id' => $syria->id];
+            $cities[] = ['name' => 'Hama', 'country_id' => $syria->id];
+            $cities[] = ['name' => 'Latakia', 'country_id' => $syria->id];
+        }
+
+        if ($turkey) {
+             $cities[] = ['name' => 'Istanbul', 'country_id' => $turkey->id];
+             $cities[] = ['name' => 'Gaziantep', 'country_id' => $turkey->id];
+             $cities[] = ['name' => 'Mersin', 'country_id' => $turkey->id];
+        }
+         if ($lebanon) {
+             $cities[] = ['name' => 'Beirut', 'country_id' => $lebanon->id];
+        }
+         if ($jordan) {
+             $cities[] = ['name' => 'Amman', 'country_id' => $jordan->id];
+        }
+         if ($germany) {
+             $cities[] = ['name' => 'Berlin', 'country_id' => $germany->id];
+             $cities[] = ['name' => 'Munich', 'country_id' => $germany->id];
+        }
+         if ($egypt) {
+             $cities[] = ['name' => 'Cairo', 'country_id' => $egypt->id];
+        }
+
+        foreach ($cities as $city) {
+             // Check if city with the same name and country exists before creating
+            $existingCity = City::where('name', $city['name'])
+                                ->where('country_id', $city['country_id'])
+                                ->first();
+            if (!$existingCity) {
+                 City::create($city);
+            }
+        }
+    }
+}
+```
+
+**4. ملف `database/seeders/AddressesSeeder.php`**
+
+لإضافة بعض العناوين الأولية.
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\Address;
+use App\Models\City;
+use Faker\Factory as Faker;
+
+class AddressesSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // DB::table('addresses')->truncate();
+        $faker = Faker::create('ar_SY'); // حاول استخدام Faker للغة العربية السورية إن أمكن
+        $cities = City::all();
+
+        if ($cities->isEmpty()) {
+            $this->command->info('Cities table is empty. Please run CitiesSeeder first.');
+            return;
+        }
+
+        $numberOfAddresses = 50; // عدد العناوين الوهمية التي تريد إنشاءها
+
+        for ($i = 0; $i < $numberOfAddresses; $i++) {
+            $city = $cities->random(); // اختر مدينة عشوائية
+
+            Address::create([
+                'street_address' => $faker->streetAddress,
+                'city_id' => $city->id,
+                'postal_code' => $faker->postcode,
+            ]);
+        }
+         $this->command->info("Seeded {$numberOfAddresses} addresses.");
+    }
+}
+```
+*ملاحظة:* قد تحتاج لضبط `Faker::create('ar_SY')` بناءً على اللغات المدعومة في مكتبة Faker المثبتة لديك. `en_US` هي القيمة الافتراضية والأكثر شيوعًا.
+
+**5. ملف `database/seeders/ProblemCategoriesSeeder.php`**
+
+لإضافة فئات المشاكل الأولية (مع أمثلة لفئات متداخلة).
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\ProblemCategory;
+use Illuminate\Support\Facades\DB;
+
+class ProblemCategoriesSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // DB::table('problem_categories')->truncate();
+
+        // Main categories
+        $infra = ProblemCategory::firstOrCreate(
+            ['name' => 'Infrastructure'],
+            ['description' => 'Problems related to buildings, roads, utilities, etc.']
+        );
+        $edu = ProblemCategory::firstOrCreate(
+             ['name' => 'Education'],
+             ['description' => 'Problems related to schools, universities, curriculum, etc.']
+        );
+        $health = ProblemCategory::firstOrCreate(
+             ['name' => 'Health'],
+             ['description' => 'Problems related to hospitals, clinics, medical supplies, etc.']
+        );
+        $economy = ProblemCategory::firstOrCreate(
+             ['name' => 'Economy'],
+             ['description' => 'Problems related to unemployment, poverty, businesses, etc.']
+        );
+        $env = ProblemCategory::firstOrCreate(
+             ['name' => 'Environment'],
+             ['description' => 'Problems related to pollution, waste management, natural resources, etc.']
+        );
+        $energy = ProblemCategory::firstOrCreate(
+             ['name' => 'Energy'],
+             ['description' => 'Problems related to electricity, fuel, renewable energy, etc.']
+        );
+         $social = ProblemCategory::firstOrCreate(
+             ['name' => 'Social Issues'],
+             ['description' => 'Problems related to social cohesion, displacement, community support, etc.']
+        );
+
+
+        // Subcategories (linking to parents)
+        if ($infra) {
+             ProblemCategory::firstOrCreate(
+                ['name' => 'Roads & Bridges', 'parent_category_id' => $infra->id],
+                ['description' => 'Problems related to transportation networks.']
+            );
+             ProblemCategory::firstOrCreate(
+                 ['name' => 'Water & Sanitation', 'parent_category_id' => $infra->id],
+                 ['description' => 'Problems related to clean water and sewage systems.']
+            );
+        }
+
+        if ($edu) {
+             ProblemCategory::firstOrCreate(
+                 ['name' => 'School Buildings', 'parent_category_id' => $edu->id],
+                 ['description' => 'Problems related to the physical state of schools.']
+            );
+        }
+         if ($health) {
+             ProblemCategory::firstOrCreate(
+                 ['name' => 'Healthcare Access', 'parent_category_id' => $health->id],
+                 ['description' => 'Problems related to getting medical help.']
+            );
+        }
+
+         $this->command->info("Seeded problem categories.");
+
+    }
+}
+```
+
+**6. ملف `database/seeders/AccountsSeeder.php`**
+
+لإنشاء أنواع مختلفة من الحسابات.
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\Account;
+use Illuminate\Support\Facades\Hash;
+use Faker\Factory as Faker;
+
+class AccountsSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // DB::table('accounts')->truncate();
+        $faker = Faker::create();
+
+        // Create Admin Account
+        Account::firstOrCreate(
+            ['email' => 'admin@example.com'],
+            [
+                'username' => 'admin',
+                'password' => Hash::make('password'), // استخدم كلمة مرور آمنة في الإنتاج
+                'account_type' => 'admin',
+                'is_active' => true,
+            ]
+        );
+         $this->command->info("Created admin account.");
+
+
+        // Create some Individual Accounts
+        $numberOfIndividuals = 30;
+        for ($i = 0; $i < $numberOfIndividuals; $i++) {
+            Account::firstOrCreate(
+                ['email' => $faker->unique()->safeEmail],
+                [
+                    'username' => $faker->unique()->userName,
+                    'password' => Hash::make('password'),
+                    'account_type' => 'individual',
+                    'is_active' => true,
+                    'points' => $faker->numberBetween(0, 500), // نقاط عشوائية
+                ]
+            );
+        }
+         $this->command->info("Created {$numberOfIndividuals} individual accounts.");
+
+
+        // Create some Organization Accounts
+        $numberOfOrganizations = 10;
+        for ($i = 0; $i < $numberOfOrganizations; $i++) {
+             Account::firstOrCreate(
+                ['email' => $faker->unique()->companyEmail],
+                [
+                    'username' => $faker->unique()->companySuffix . '_' . $faker->randomNumber(3),
+                    'password' => Hash::make('password'),
+                    'account_type' => 'organization',
+                    'is_active' => true,
+                    'points' => $faker->numberBetween(0, 1000), // نقاط عشوائية
+                ]
+            );
+        }
+        $this->command->info("Created {$numberOfOrganizations} organization accounts.");
+    }
+}
+```
+
+**7. ملف `database/seeders/UserProfilesSeeder.php`**
+
+لإنشاء ملفات تعريف للمستخدمين الأفراد.
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\Account;
+use App\Models\UserProfile;
+use App\Models\Address;
+use Faker\Factory as Faker;
+
+class UserProfilesSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // DB::table('user_profiles')->truncate();
+        $faker = Faker::create('ar_SY'); // حاول استخدام Faker للغة العربية السورية
+        $individualAccounts = Account::where('account_type', 'individual')->get();
+        $addresses = Address::all();
+
+        if ($addresses->isEmpty()) {
+             $this->command->info('Addresses table is empty. Please run AddressesSeeder first.');
+             // يمكنك هنا إنشاء عناوين وهمية بسيطة إذا لم تكن موجودة
+             // Example: $address = Address::factory()->create(['city_id' => City::inRandomOrder()->first()->id]);
+             // Or just return and ask user to seed Addresses
+             return;
+        }
+
+        foreach ($individualAccounts as $account) {
+            // Check if profile already exists
+            if (!$account->userProfile) {
+                 UserProfile::create([
+                    'account_id' => $account->id,
+                    'first_name' => $faker->firstName,
+                    'last_name' => $faker->lastName,
+                    'phone' => $faker->phoneNumber,
+                    'address_id' => $addresses->random()->id, // ربط بعنوان عشوائي موجود
+                    'bio' => $faker->sentence,
+                ]);
+            }
+        }
+        $this->command->info("Seeded user profiles.");
+    }
+}
+```
+*ملاحظة:* نفس ملاحظة Faker للغة العربية.
+
+**8. ملف `database/seeders/OrganizationProfilesSeeder.php`**
+
+لإنشاء ملفات تعريف للمنظمات.
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\Account;
+use App\Models\OrganizationProfile;
+use App\Models\Address;
+use Faker\Factory as Faker;
+
+class OrganizationProfilesSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // DB::table('organization_profiles')->truncate();
+        $faker = Faker::create();
+        $organizationAccounts = Account::where('account_type', 'organization')->get();
+        $addresses = Address::all();
+
+         if ($addresses->isEmpty()) {
+             $this->command->info('Addresses table is empty. Please run AddressesSeeder first.');
+             return;
+        }
+
+
+        foreach ($organizationAccounts as $account) {
+             // Check if profile already exists
+            if (!$account->organizationProfile) {
+                 OrganizationProfile::create([
+                    'account_id' => $account->id,
+                    'name' => $faker->unique()->company,
+                    'address_id' => $addresses->random()->id, // ربط بعنوان عشوائي موجود
+                    'info' => $faker->catchPhrase . ' focused on ' . $faker->bs,
+                    'website_url' => $faker->url,
+                    'contact_email' => $faker->unique()->companyEmail,
+                ]);
+            }
+        }
+        $this->command->info("Seeded organization profiles.");
+    }
+}
+```
+
+**9. ملف `database/seeders/BadgesSeeder.php`**
+
+لتعريف الألقاب/الشارات.
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\Badge;
+use Illuminate\Support\Facades\DB;
+
+class BadgesSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // DB::table('badges')->truncate();
+
+        $badges = [
+            [
+                'name' => 'Novice Contributor',
+                'description' => 'Earned by posting your first comment.',
+                'image_url' => '/images/badges/novice.png', // مثال لمسار الصورة
+                'required_points' => 10, // يحتاج 10 نقاط
+                'required_adopted_comments_count' => 0, // ولا يحتاج تعليقات معتمدة
+            ],
+            [
+                'name' => 'Rising Thinker',
+                'description' => 'Awarded for reaching 100 points.',
+                'image_url' => '/images/badges/rising_thinker.png',
+                'required_points' => 100,
+                'required_adopted_comments_count' => 0,
+            ],
+            [
+                'name' => 'Problem Solver I',
+                'description' => 'Earned when one of your comments is adopted as a solution.',
+                'image_url' => '/images/badges/solver_1.png',
+                'required_points' => 0, // لا يحتاج نقاط محددة
+                'required_adopted_comments_count' => 1, // يحتاج تعليق واحد معتمد
+            ],
+            [
+                'name' => 'Problem Solver II',
+                'description' => 'Awarded when 3 of your comments are adopted as solutions.',
+                'image_url' => '/images/badges/solver_2.png',
+                'required_points' => 0,
+                'required_adopted_comments_count' => 3,
+            ],
+             [
+                'name' => 'Community Favorite',
+                'description' => 'Given for receiving 50 upvotes across your comments.',
+                'image_url' => '/images/badges/favorite.png',
+                'required_points' => 50, // قد تربط النقاط بالUpvotes
+                'required_adopted_comments_count' => 0,
+            ],
+        ];
+
+        foreach ($badges as $badge) {
+            Badge::firstOrCreate(['name' => $badge['name']], $badge);
+        }
+        $this->command->info("Seeded badges.");
+    }
+}
+```
+
+**10. ملف `database/seeders/ProblemsSeeder.php`**
+
+لإضافة مشاكل أولية.
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\Problem;
+use App\Models\Account;
+use App\Models\ProblemCategory;
+use Faker\Factory as Faker;
+
+class ProblemsSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // DB::table('problems')->truncate();
+        $faker = Faker::create('ar_SY'); // حاول استخدام Faker للغة العربية
+        $submitters = Account::whereIn('account_type', ['individual', 'organization', 'admin'])->get();
+        $categories = ProblemCategory::all();
+
+        if ($submitters->isEmpty() || $categories->isEmpty()) {
+            $this->command->info('Accounts or ProblemCategories table is empty. Please run previous seeders.');
+            return;
+        }
+
+        $numberOfProblems = 30;
+
+        for ($i = 0; $i < $numberOfProblems; $i++) {
+            $submitter = $submitters->random();
+            $category = $categories->random();
+
+            Problem::create([
+                'title' => $faker->sentence(mt_rand(5, 10)),
+                'description' => $faker->paragraphs(mt_rand(2, 5), true),
+                'submitted_by_account_id' => $submitter->id,
+                'category_id' => $category->id,
+                'urgency' => $faker->randomElement(['Low', 'Medium', 'High']),
+                'status' => $faker->randomElement(['Published', 'Published', 'Published', 'UnderReview', 'Hidden']), // معظمها منشورة
+                'tags' => implode(',', $faker->words(mt_rand(1, 5))),
+            ]);
+        }
+        $this->command->info("Seeded {$numberOfProblems} problems.");
+    }
+}
+```
+
+**11. ملف `database/seeders/CommentsSeeder.php`**
+
+لإضافة تعليقات أولية (مع بعض الردود).
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\Comment;
+use App\Models\Account;
+use App\Models\Problem;
+use Faker\Factory as Faker;
+
+class CommentsSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // DB::table('comments')->truncate();
+        $faker = Faker::create('ar_SY'); // حاول استخدام Faker للغة العربية
+        $authors = Account::whereIn('account_type', ['individual', 'organization'])->get(); // المنظمات يمكن أن تعلق
+        $problems = Problem::all();
+
+        if ($authors->isEmpty() || $problems->isEmpty()) {
+            $this->command->info('Accounts or Problems table is empty. Please run previous seeders.');
+            return;
+        }
+
+        $numberOfCommentsPerProblem = 5;
+        $replyChance = 0.3; // 30% chance to be a reply
+
+        foreach ($problems as $problem) {
+            $rootComments = []; // Store comments created for this problem to use as parents
+
+            for ($i = 0; $i < $numberOfCommentsPerProblem; $i++) {
+                $author = $authors->random();
+                $parent_comment_id = null;
+
+                // Decide if this comment is a reply and if there are parent comments available
+                if (!empty($rootComments) && $faker->randomFloat(1, 0, 1) < $replyChance) {
+                    $parent_comment_id = $faker->randomElement($rootComments)->id;
+                }
+
+                $comment = Comment::create([
+                    'content' => $faker->paragraph(mt_rand(1, 3)),
+                    'author_account_id' => $author->id,
+                    'problem_id' => $problem->id,
+                    'parent_comment_id' => $parent_comment_id,
+                    'total_votes' => $faker->numberBetween(0, 50), // تصويتات عشوائية مبدئية
+                ]);
+
+                // If it's a root comment, add it to the list of potential parents
+                if ($parent_comment_id === null) {
+                    $rootComments[] = $comment;
+                }
+            }
+        }
+        $this->command->info("Seeded comments for {$problems->count()} problems.");
+    }
+}
+```
+
+**12. ملف `database/seeders/CommentVotesSeeder.php`**
+
+لإضافة تصويتات على التعليقات.
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\CommentVote;
+use App\Models\Comment;
+use App\Models\Account;
+use Faker\Factory as Faker;
+
+class CommentVotesSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // DB::table('comment_votes')->truncate(); // Use truncate with caution
+        $faker = Faker::create();
+        $comments = Comment::all();
+        $voters = Account::where('account_type', 'individual')->get(); // نفترض أن الأفراد هم من يصوتون بشكل أساسي
+
+        if ($comments->isEmpty() || $voters->isEmpty()) {
+            $this->command->info('Comments or Individual Accounts table is empty. Please run previous seeders.');
+            return;
+        }
+
+        $votesPerComment = 5; // عدد متوسط من التصويتات لكل تعليق
+        $voteValues = [-1, 1]; // القيم الممكنة للتصويت
+
+        foreach ($comments as $comment) {
+            $usedVoters = []; // لتجنب تكرار تصويت نفس المستخدم على نفس التعليق
+
+            for ($i = 0; $i < $votesPerComment; $i++) {
+                $voter = $voters->random();
+
+                // Skip if this voter already voted on this comment in this seeding run
+                if (in_array($voter->id, $usedVoters)) {
+                    continue;
+                }
+
+                try {
+                    CommentVote::create([
+                        'comment_id' => $comment->id,
+                        'voter_account_id' => $voter->id,
+                        'vote_value' => $faker->randomElement($voteValues),
+                    ]);
+                    $usedVoters[] = $voter->id;
+                } catch (\Illuminate\Database\QueryException $e) {
+                    // Catch unique constraint violation if it happens despite checks
+                    // This can happen if running multiple times without truncate or if logic is complex
+                     // $this->command->warn("Skipping duplicate vote for Comment ID: {$comment->id} by Account ID: {$voter->id}");
+                     continue; // Skip if duplicate vote constraint is violated
+                }
+            }
+            // Optional: Update comment's total_votes after seeding votes for it
+            // In a real app, this update should ideally happen via a database trigger
+            // or a dedicated event/listener when a vote is cast.
+            $comment->total_votes = $comment->votes()->sum('vote_value');
+            $comment->save();
+        }
+        $this->command->info("Seeded comment votes and updated total_votes.");
+    }
+}
+```
+
+**13. ملف `database/seeders/SolutionsSeeder.php`**
+
+لإنشاء بعض الأمثلة للتعليقات التي تم اعتمادها كحلول من قبل المنظمات.
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\Solution;
+use App\Models\Comment;
+use App\Models\OrganizationProfile;
+use App\Models\Account; // Needed to find the author of the comment to give points
+use Faker\Factory as Faker;
+
+class SolutionsSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // DB::table('solutions')->truncate();
+        $faker = Faker::create();
+        $comments = Comment::all();
+        $organizations = OrganizationProfile::all();
+
+        if ($comments->isEmpty() || $organizations->isEmpty()) {
+            $this->command->info('Comments or Organization Profiles table is empty. Please run previous seeders.');
+            return;
+        }
+
+        $numberOfAdoptedSolutions = 10; // عدد الحلول المعتمدة الوهمية
+
+        $adoptedComments = []; // Keep track of comment IDs already adopted
+
+        for ($i = 0; $i < $numberOfAdoptedSolutions; $i++) {
+            // Find a comment that hasn't been adopted yet
+            $comment = $comments->whereNotIn('id', $adoptedComments)->random();
+            $organization = $organizations->random();
+
+            if (!$comment) {
+                $this->command->warn('Not enough unique comments to adopt.');
+                break; // Stop if no more un-adopted comments are available
+            }
+
+            try {
+                Solution::create([
+                    'comment_id' => $comment->id,
+                    'adopting_organization_profile_id' => $organization->id,
+                    'status' => $faker->randomElement(['UnderConsideration', 'Adopted', 'ImplementationInProgress', 'ImplementationCompleted', 'RejectedByOrganization']),
+                    'organization_notes' => $faker->sentence,
+                ]);
+
+                $adoptedComments[] = $comment->id; // Add to list of adopted comments
+
+                // --- Logic to award points to the comment author (as per your project rules) ---
+                $commentAuthor = Account::find($comment->author_account_id);
+                if ($commentAuthor) {
+                    $pointsToAdd = 50; // مثال: منح 50 نقطة عند اعتماد التعليق
+                    $commentAuthor->points += $pointsToAdd;
+                    $commentAuthor->save();
+                    // $this->command->info("Awarded {$pointsToAdd} points to Account ID: {$commentAuthor->id} for adopted comment ID: {$comment->id}");
+                }
+                 // --- End of point awarding logic ---
+
+
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Catch unique constraint violation if the same comment is somehow selected twice
+                 // $this->command->warn("Skipping duplicate solution creation for Comment ID: {$comment->id}");
+                 continue;
+            }
+        }
+         $this->command->info("Seeded {$numberOfAdoptedSolutions} adopted solutions.");
+    }
+}
+```
+
+**14. ملف `database/seeders/AccountBadgesSeeder.php`**
+
+لمنح بعض المستخدمين ألقابًا أولية.
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\AccountBadge;
+use App\Models\Account;
+use App\Models\Badge;
+use Faker\Factory as Faker;
+
+class AccountBadgesSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // DB::table('account_badges')->truncate();
+        $faker = Faker::create();
+        $accounts = Account::where('account_type', 'individual')->get(); // نفترض أن الأفراد هم من يحصلون على الألقاب
+        $badges = Badge::all();
+
+        if ($accounts->isEmpty() || $badges->isEmpty()) {
+            $this->command->info('Accounts or Badges table is empty. Please run previous seeders.');
+            return;
+        }
+
+        $numberOfBadgesToAward = 20; // عدد الألقاب الوهمية التي ستمنح
+
+        for ($i = 0; $i < $numberOfBadgesToAward; $i++) {
+            $account = $accounts->random();
+            $badge = $badges->random();
+
+            try {
+                AccountBadge::create([
+                    'account_id' => $account->id,
+                    'badge_id' => $badge->id,
+                    'awarded_at' => $faker->dateTimeBetween('-1 year', 'now'),
+                ]);
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Catch unique constraint violation (if account already has this badge)
+                 // $this->command->warn("Skipping duplicate badge for Account ID: {$account->id}, Badge ID: {$badge->id}");
+                 continue; // Skip this iteration if duplicate
+            }
+        }
+        $this->command->info("Seeded {$numberOfBadgesToAward} account badges.");
+    }
+}
+```
+
+**15. ملف `database/seeders/OrganizationCategoryInterestsSeeder.php`**
+
+لربط بعض المنظمات بفئات مشاكل معينة (اختياري).
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\OrganizationProfile;
+use App\Models\ProblemCategory;
+use Illuminate\Support\Facades\DB; // استخدم DB Facade للجداول Pivot البسيطة
+
+class OrganizationCategoryInterestsSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // DB::table('organization_category_interests')->truncate(); // Use truncate with caution
+
+        $organizations = OrganizationProfile::all();
+        $categories = ProblemCategory::all();
+
+        if ($organizations->isEmpty() || $categories->isEmpty()) {
+            $this->command->info('Organization Profiles or Problem Categories table is empty. Please run previous seeders.');
+            return;
+        }
+
+        $interestsToCreate = 15; // عدد الارتباطات بين المنظمات والفئات
+
+        for ($i = 0; $i < $interestsToCreate; $i++) {
+            $organization = $organizations->random();
+            $category = $categories->random();
+
+            try {
+                 // Insert directly into the pivot table
+                DB::table('organization_category_interests')->insert([
+                    'organization_profile_id' => $organization->id,
+                    'problem_category_id' => $category->id,
+                    'created_at' => now(), // Add timestamps if they exist in migration
+                    'updated_at' => now(), // Add timestamps if they exist in migration
+                ]);
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Catch unique constraint violation for the composite primary key
+                 // $this->command->warn("Skipping duplicate interest for Org Profile ID: {$organization->id}, Category ID: {$category->id}");
+                 continue; // Skip if duplicate
+            }
+        }
+         $this->command->info("Seeded {$interestsToCreate} organization category interests.");
+    }
+}
+```
+
+**تشغيل الـ Seeders:**
+
+بعد حفظ جميع هذه الملفات، يمكنك تشغيل جميع الـ Seeders دفعة واحدة باستخدام الأمر التالي:
+
+```bash
+php artisan db:seed
+```
+
+أو إذا أردت تشغيل Seeder معين فقط:
+
+```bash
+php artisan db:seed --class=AccountsSeeder
+```
+
+الآن أصبح لديك قاعدة بيانات مليئة ببيانات وهمية واقعية يمكنك استخدامها لاختبار وظائف تطبيقك المختلفة.
+
+**ملاحظات هامة:**
+
+*   **الاعتمادية:** تأكد من ترتيب استدعاء الـ Seeders في `DatabaseSeeder.php` لضمان وجود البيانات التي تشير إليها المفاتيح الخارجية قبل محاولة ربطها.
+*   **البيانات الفريدة:** استخدم `firstOrCreate` في بعض الـ Seeders (مثل الدول والفئات) لتجنب تكرار إدخال نفس البيانات الثابتة إذا قمت بتشغيل الـ Seeder أكثر من مرة. بالنسبة للجداول التي تسمح بالتكرار (مثل التعليقات)، استخدم `create`.
+*   **التعامل مع المفاتيح الخارجية:** استخدم `foreignId(...)->constrained(...)` في الهجرات لإنشاء المفاتيح الخارجية بشكل صحيح. في الـ Seeders، احصل على كائنات النماذج المرتبطة (مثل `$author = Account::find(...)`) واستخدم معرّفاتها (`$author->id`) لملء الحقول في الجدول الحالي.
+*   **Faker:** مكتبة Faker رائعة لإنشاء بيانات وهمية. يمكنك استكشاف المزيد من أنواع البيانات التي تولدها (`$faker->name`, `$faker->text`, `$faker->dateTime`, إلخ) لجعل بياناتك أكثر تنوعًا.
+*   **Truncate:** السطور التي تحتوي على `DB::table('table_name')->truncate();` تقوم بمسح جميع البيانات الموجودة في الجدول قبل إضافة البيانات الجديدة. هذا مفيد في بيئة التطوير لإعادة تعيين البيانات، لكن **كن حذرًا جدًا عند استخدامه في بيئة الإنتاج**.
+
+
+
+تمام، بناءً على هيكل قاعدة البيانات النهائي ورؤية المشروع، سنقوم الآن بإنشاء المتحكمات اللازمة وتصميم ملف المسارات `routes/web.php`. سنركز على إنشاء بنية المتحكمات وتحديد وظيفة كل دالة (method) فيها، وتحديد المسارات التي ستستدعي هذه الدوال. ملفات الواجهة (Views) ستكون خطوتنا التالية.
+
+**إنشاء المتحكمات (Controllers):**
+
+سنستخدم الأمر `php artisan make:controller ControllerName` لإنشاء المتحكمات.
+
+```bash
+php artisan make:controller HomeController
+php artisan make:controller AuthController # للمصادقة المخصصة باستخدام جدول Accounts
+php artisan make:controller ProfileController # لملفات المستخدمين والمنظمات
+php artisan make:controller ProblemController
+php artisan make:controller CommentController
+php artisan make:controller CommentVoteController # للتصويت على التعليقات
+php artisan make:controller BadgeController # لعرض الألقاب
+php artisan make:controller OrganizationController # لإدارة مهام المنظمات (مثل اعتماد الحلول)
+php artisan make:controller SolutionController # لعرض الحلول المعتمدة وإدارة حالتها
+php artisan make:controller AdminController # لوحة تحكم للمسؤولين
+```
+
+**ملف المسارات `routes/web.php`:**
+
+سنقوم بتنظيم المسارات بناءً على المناطق الوظيفية (عامة، مصادقة، محمية للمستخدمين/المنظمات، خاصة بالمنظمات، لوحة المسؤول).
+
+```php
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProblemController;
+use App\Http\Controllers\CommentController;
+use App\Http\Controllers\CommentVoteController;
+use App\Http\Controllers\BadgeController;
+use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\SolutionController;
+use App\Http\Controllers\AdminController; // للمتحكمات الإدارية
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "web" middleware group. Make something great!
+|
+*/
+
+// --- Public Routes ---
+// يمكن لأي زائر الوصول إليها
+
+Route::get('/', [HomeController::class, 'index'])->name('home'); // الصفحة الرئيسية
+
+// عرض قائمة المشاكل
+Route::get('/problems', [ProblemController::class, 'index'])->name('problems.index');
+// عرض مشكلة محددة وتفاصيلها وتعليقاتها
+Route::get('/problems/{problem}', [ProblemController::class, 'show'])->name('problems.show');
+
+// عرض جميع الألقاب المتاحة
+Route::get('/badges', [BadgeController::class, 'index'])->name('badges.index');
+
+// عرض ملفات المستخدمين والمنظمات بشكل عام (يمكن تعديلها لتكون للمسجلين فقط لاحقاً)
+Route::get('/profiles/{account}', [ProfileController::class, 'show'])->name('profiles.show');
+
+// --- Authentication Routes ---
+// مسارات تسجيل الدخول والتسجيل والخروج باستخدام AuthController المخصص
+
+Route::get('/register', [AuthController::class, 'showRegistrationForm'])->name('register');
+Route::post('/register', [AuthController::class, 'register']); // معالجة بيانات التسجيل
+
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [AuthController::class, 'login']); // معالجة بيانات تسجيل الدخول
+
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth'); // يتطلب تسجيل الدخول للخروج
+
+// --- Authenticated User/Organization Routes ---
+// تتطلب تسجيل الدخول (middleware 'auth')
+
+Route::middleware('auth')->group(function () {
+
+    // إدارة ملف المستخدم أو المنظمة الحالي
+    Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update'); // استخدام PUT/PATCH للتعديل
+    Route::get('/profile/badges', [ProfileController::class, 'showMyBadges'])->name('profile.badges'); // عرض ألقاب المستخدم الحالي
+
+    // إنشاء مشكلة جديدة
+    Route::get('/problems/create', [ProblemController::class, 'create'])->name('problems.create');
+    Route::post('/problems', [ProblemController::class, 'store'])->name('problems.store'); // حفظ مشكلة جديدة
+
+    // تعديل وحذف مشكلة (يجب أن يكون المستخدم هو صاحب المشكلة أو مسؤول)
+    Route::get('/problems/{problem}/edit', [ProblemController::class, 'edit'])->name('problems.edit');
+    Route::put('/problems/{problem}', [ProblemController::class, 'update'])->name('problems.update');
+    Route::delete('/problems/{problem}', [ProblemController::class, 'destroy'])->name('problems.destroy');
+
+    // إضافة تعليق جديد على مشكلة أو تعليق آخر
+    Route::post('/comments', [CommentController::class, 'store'])->name('comments.store');
+
+    // تعديل وحذف تعليق (يجب أن يكون المستخدم هو صاحب التعليق أو مسؤول)
+    Route::get('/comments/{comment}/edit', [CommentController::class, 'edit'])->name('comments.edit'); // قد تحتاج هذه المسارات لصفحات تعديل فردية أو تستخدم Ajax
+    Route::put('/comments/{comment}', [CommentController::class, 'update'])->name('comments.update');
+    Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
+
+    // التصويت على التعليقات (يمكن أن تكون POST requests)
+    Route::post('/comments/{comment}/vote', [CommentVoteController::class, 'vote'])->name('comments.vote');
+
+});
+
+// --- Organization Specific Routes ---
+// تتطلب أن يكون الحساب مسجل دخول ونوعه 'organization'
+// ستحتاج إلى Middleware مخصص 'isOrganization' أو التحقق داخل المتحكم
+
+Route::middleware(['auth', 'isOrganization'])->prefix('organization')->name('organization.')->group(function () {
+    // لوحة تحكم المنظمة (قد تكون صفحة داشبورد تعرض المشاكل ذات الصلة أو الحلول المعتمدة)
+    // Route::get('/dashboard', [OrganizationController::class, 'dashboard'])->name('dashboard');
+
+    // عملية اعتماد تعليق كحل
+    // قد تكون هذه العملية كـ POST request من صفحة عرض المشكلة أو التعليق
+    Route::post('/adopt-comment/{comment}', [OrganizationController::class, 'adoptComment'])->name('adoptComment');
+
+    // عرض الحلول المعتمدة من قبل هذه المنظمة
+    Route::get('/solutions', [OrganizationController::class, 'listAdoptedSolutions'])->name('listAdoptedSolutions');
+    // عرض تفاصيل حل معتمد محدد
+    Route::get('/solutions/{solution}', [OrganizationController::class, 'showAdoptedSolution'])->name('showAdoptedSolution');
+    // تعديل حالة الحل المعتمد
+    Route::put('/solutions/{solution}/status', [OrganizationController::class, 'updateAdoptedSolutionStatus'])->name('updateAdoptedSolutionStatus');
+
+    // إدارة اهتمامات المنظمة بالفئات (ربط المنظمة بالفئات في organization_category_interests)
+    Route::get('/categories/interests', [OrganizationController::class, 'editCategoryInterests'])->name('editCategoryInterests');
+    Route::post('/categories/interests', [OrganizationController::class, 'updateCategoryInterests'])->name('updateCategoryInterests');
+
+});
+
+// --- Admin Routes ---
+// تتطلب أن يكون الحساب مسجل دخول ونوعه 'admin'
+// ستحتاج إلى Middleware مخصص 'isAdmin' أو التحقق داخل المتحكم
+
+Route::middleware(['auth', 'isAdmin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+
+    // إدارة الحسابات (قائمة، تعديل، حذف، تفعيل/تعطيل، تغيير النوع)
+    Route::resource('accounts', AdminController::class)->except(['show']); // أمثلة CRUD بسيطة في متحكم واحد
+
+    // إدارة المشاكل (قائمة، تعديل، حذف، تغيير الحالة)
+    Route::resource('problems', AdminController::class)->except(['create', 'store', 'show']); // أمثلة CRUD بسيطة
+
+    // إدارة الفئات (قائمة، إنشاء، تعديل، حذف)
+    Route::resource('categories', AdminController::class)->except(['show']);
+
+    // إدارة الألقاب (قائمة، إنشاء، تعديل، حذف، منح للمستخدمين يدوياً)
+    Route::resource('badges', AdminController::class)->except(['show']);
+
+     // إدارة الحلول المعتمدة (عرض الكل، تغيير الحالة، إلغاء الاعتماد)
+    Route::resource('solutions', AdminController::class)->except(['create', 'store', 'edit']);
+
+    // قد تحتاج مسارات إضافية لإدارة التعليقات يدوياً أو الإبلاغات إن وجدت
+
+});
+
+```
+
+**محتوى ملفات المتحكمات (Controllers):**
+
+سنقوم بإنشاء هيكل لكل متحكم مع الدوال التي ستؤدي المهام المحددة في المسارات. ستحتوي الدوال على منطق بسيط (مثل جلب البيانات أو توجيه إلى واجهة) لأن الواجهات والمنطق المعقد (مثل التحقق من الصلاحيات الدقيق) سيتم بناؤه لاحقًا.
+
+**1. `app/Http/Controllers/HomeController.php`**
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\Problem; // لاستخدام نموذج المشكلة
+
+class HomeController extends Controller
+{
+    /**
+     * Display the home page with recent problems.
+     */
+    public function index()
+    {
+        // جلب أحدث المشاكل المنشورة
+        $recentProblems = Problem::where('status', 'Published')
+                                  ->latest() // ترتيب حسب الأحدث
+                                  ->with('submittedBy', 'category') // جلب بيانات الناشر والفئة
+                                  ->limit(10) // عرض 10 مشاكل مثلاً
+                                  ->get();
+
+        // إرجاع الواجهة (View) وتمرير البيانات إليها
+        // ستنشئ هذا الملف لاحقاً: resources/views/home.blade.php
+        return view('home', compact('recentProblems'));
+    }
+}
+```
+
+**2. `app/Http/Controllers/AuthController.php`**
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\Account; // استخدام نموذج الحساب المخصص
+use App\Models\UserProfile; // لإنشاء ملف شخصي للمستخدم الفردي
+use App\Models\OrganizationProfile; // لإنشاء ملف شخصي للمنظمة
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth; // لاستخدام نظام المصادقة في Laravel
+use Illuminate\Validation\Rule; // لاستخدام قواعد التحقق المخصصة
+
+class AuthController extends Controller
+{
+    // عرض نموذج التسجيل
+    public function showRegistrationForm()
+    {
+        // ستنشئ هذا الملف لاحقاً: resources/views/auth/register.blade.php
+        return view('auth.register');
+    }
+
+    // معالجة بيانات التسجيل
+    public function register(Request $request)
+    {
+        // التحقق من صحة البيانات
+        $request->validate([
+            'username' => ['required', 'string', 'max:255', 'unique:accounts'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:accounts'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            // التحقق من أن account_type هي إحدى القيم المسموح بها
+            'account_type' => ['required', 'string', Rule::in(['individual', 'organization'])],
+            // يمكن إضافة قواعد تحقق إضافية هنا إذا كانت حقول ملفات التعريف إلزامية عند التسجيل
+            // 'first_name' => Rule::requiredIf($request->account_type === 'individual'),
+            // 'name' => Rule::requiredIf($request->account_type === 'organization'),
+        ]);
+
+        // إنشاء الحساب في جدول Accounts
+        $account = Account::create([
+            'username' => $request->username,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'account_type' => $request->account_type,
+            'is_active' => true, // تفعيل الحساب مباشرة
+        ]);
+
+        // إنشاء ملف التعريف المرتبط بناءً على نوع الحساب
+        if ($account->account_type === 'individual') {
+            UserProfile::create([
+                'account_id' => $account->id,
+                // يمكن ملء الحقول الإضافية هنا إذا كانت موجودة في نموذج التسجيل
+            ]);
+        } elseif ($account->account_type === 'organization') {
+             OrganizationProfile::create([
+                'account_id' => $account->id,
+                'name' => $request->name ?? $account->username, // استخدام الاسم المقدم أو اسم المستخدم كاسم مبدئي للمنظمة
+                // يمكن ملء الحقول الإضافية هنا
+            ]);
+        }
+
+        // تسجيل دخول المستخدم تلقائياً بعد التسجيل
+        Auth::login($account);
+
+        // إعادة التوجيه إلى الصفحة الرئيسية أو صفحة الملف الشخصي
+        return redirect()->route('home')->with('success', 'Account created successfully!');
+    }
+
+    // عرض نموذج تسجيل الدخول
+    public function showLoginForm()
+    {
+         // إذا كان المستخدم مسجل دخول بالفعل، قم بإعادة توجيهه
+        if (Auth::check()) {
+            return redirect()->route('home');
+        }
+        // ستنشئ هذا الملف لاحقاً: resources/views/auth/login.blade.php
+        return view('auth.login');
+    }
+
+    // معالجة بيانات تسجيل الدخول
+    public function login(Request $request)
+    {
+        // التحقق من صحة البيانات
+        $credentials = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required'],
+        ]);
+
+        // محاولة تسجيل الدخول باستخدام البريد الإلكتروني وكلمة المرور
+        // هنا يستخدم Laravel Guards ونموذج User (الذي أعدنا تسميته Account)
+        if (Auth::attempt($credentials, $request->remember)) {
+            // التحقق مما إذا كان الحساب نشطاً
+            if (!Auth::user()->is_active) {
+                 Auth::logout(); // تسجيل الخروج إذا كان الحساب غير نشط
+                 $request->session()->invalidate();
+                 $request->session()->regenerateToken();
+                 return back()->withErrors([
+                    'email' => 'Your account is not active.',
+                 ])->onlyInput('email');
+            }
+
+            $request->session()->regenerate();
+
+            // إعادة التوجيه إلى الصفحة المقصودة أو الرئيسية
+            return redirect()->intended(route('home'))->with('success', 'Logged in successfully!');
+        }
+
+        // في حالة فشل تسجيل الدخول
+        return back()->withErrors([
+            'email' => 'The provided credentials do not match our records.',
+        ])->onlyInput('email');
+    }
+
+    // تسجيل الخروج
+    public function logout(Request $request)
+    {
+        Auth::logout(); // تسجيل الخروج
+
+        $request->session()->invalidate(); // إبطال الجلسة
+        $request->session()->regenerateToken(); // إعادة توليد رمز CSRF
+
+        return redirect('/')->with('success', 'Logged out successfully!'); // إعادة التوجيه إلى الصفحة الرئيسية
+    }
+}
+```
+
+**3. `app/Http/Controllers/ProfileController.php`**
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\Account;
+use App\Models\UserProfile;
+use App\Models\OrganizationProfile;
+use App\Models\Address; // لاستخدام نموذج العنوان إذا تم تعديله
+use App\Models\City; // لاستخدام نموذج المدينة
+use Illuminate\Validation\Rule;
+
+class ProfileController extends Controller
+{
+    /**
+     * Display a user or organization profile.
+     */
+    public function show(Account $account)
+    {
+        // تحميل العلاقة المناسبة (UserProfile أو OrganizationProfile)
+        $account->load('userProfile', 'organizationProfile', 'accountBadges.badge'); // حمل الألقاب أيضاً
+
+        // تحديد نوع الملف الشخصي لعرض الواجهة المناسبة
+        $profile = $account->isIndividual() ? $account->userProfile : $account->organizationProfile;
+
+        if (!$profile) {
+             abort(404, 'Profile not found.'); // إذا لم يتم العثور على ملف شخصي (رغم أن الحساب موجود)
+        }
+
+        // ستنشئ الواجهة لاحقاً: resources/views/profiles/show.blade.php
+        return view('profiles.show', compact('account', 'profile'));
+    }
+
+    /**
+     * Show the form for editing the authenticated user's profile.
+     */
+    public function edit()
+    {
+        $account = Auth::user(); // الحساب المسجل دخوله
+        $account->load('userProfile', 'organizationProfile');
+
+        // تأكد من أن الحساب لديه ملف شخصي
+        if (!$account->userProfile && !$account->organizationProfile) {
+             return redirect()->route('home')->with('error', 'Your account does not have a profile.');
+        }
+
+        $profile = $account->isIndividual() ? $account->userProfile : $account->organizationProfile;
+        $cities = City::all(); // لجلب المدن في نموذج العنوان
+
+        // ستنشئ الواجهة لاحقاً: resources/views/profiles/edit.blade.php
+        return view('profiles.edit', compact('account', 'profile', 'cities'));
+    }
+
+    /**
+     * Update the authenticated user's profile in storage.
+     */
+    public function update(Request $request)
+    {
+        $account = Auth::user();
+        $account->load('userProfile', 'organizationProfile');
+
+        // تحديد قواعد التحقق بناءً على نوع الحساب
+        if ($account->isIndividual()) {
+            $profile = $account->userProfile;
+            $rules = [
+                'first_name' => 'nullable|string|max:100',
+                'last_name' => 'nullable|string|max:100',
+                'phone' => 'nullable|string|max:30',
+                'bio' => 'nullable|string',
+                'city_id' => 'nullable|exists:cities,id', // التحقق من وجود المدينة
+                'street_address' => 'nullable|string|max:255',
+                'postal_code' => 'nullable|string|max:20',
+            ];
+        } elseif ($account->isOrganization()) {
+            $profile = $account->organizationProfile;
+             $rules = [
+                'name' => 'required|string|max:255',
+                'info' => 'nullable|string',
+                'website_url' => 'nullable|url|max:255',
+                'contact_email' => 'nullable|email|max:255',
+                'city_id' => 'nullable|exists:cities,id',
+                'street_address' => 'nullable|string|max:255',
+                'postal_code' => 'nullable|string|max:20',
+            ];
+        } else {
+             // لن يسمح middleware 'auth' بوصول المسؤولين هنا عادةً، لكن من الجيد التحقق
+             return redirect()->route('home')->with('error', 'Unauthorized profile update.');
+        }
+
+        // التحقق من صحة البيانات
+        $request->validate($rules);
+
+        // تحديث بيانات الملف الشخصي
+        $profile->fill($request->except(['_token', '_method', 'city_id', 'street_address', 'postal_code']))->save();
+
+        // تحديث أو إنشاء العنوان إذا تم تقديمه
+        if ($request->filled('city_id')) {
+            // البحث عن العنوان الحالي أو إنشاء عنوان جديد
+            $address = $profile->address ?: new Address();
+            $address->city_id = $request->city_id;
+            $address->street_address = $request->street_address;
+            $address->postal_code = $request->postal_code;
+            $address->save();
+
+            // ربط العنوان بملف التعريف إذا كان جديدًا
+            if (!$profile->address_id) {
+                $profile->address_id = $address->id;
+                $profile->save();
+            }
+        } elseif ($profile->address) {
+            // حذف العنوان إذا لم يتم تقديم بيانات عنوان جديدة وكان هناك عنوان سابق
+             // $profile->address->delete(); // يمكن اختيار حذف العنوان أو لا
+             // $profile->address_id = null;
+             // $profile->save();
+        }
+
+
+        return redirect()->route('profiles.show', $account)->with('success', 'Profile updated successfully!');
+    }
+
+    /**
+     * Display the authenticated user's badges.
+     */
+     public function showMyBadges()
+     {
+         $account = Auth::user();
+         $account->load('accountBadges.badge'); // تحميل الألقاب التي حصل عليها الحساب
+
+         $badges = $account->accountBadges; // collection of AccountBadge models
+
+         // ستنشئ الواجهة لاحقاً: resources/views/profiles/my_badges.blade.php
+         return view('profiles.my_badges', compact('account', 'badges'));
+     }
+}
+```
+
+**4. `app/Http/Controllers/ProblemController.php`**
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Problem;
+use App\Models\ProblemCategory; // لاستخدام نموذج فئات المشاكل
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth; // للتأكد من المستخدم المسجل دخوله
+use Illuminate\Validation\Rule; // لاستخدام قواعد التحقق
+
+class ProblemController extends Controller
+{
+    /**
+     * Display a listing of the problems.
+     */
+    public function index()
+    {
+        // جلب جميع المشاكل المنشورة مع معلومات الناشر والفئة
+        $problems = Problem::where('status', 'Published')
+                           ->with('submittedBy.userProfile', 'submittedBy.organizationProfile', 'category') // تحميل العلاقات
+                           ->latest() // ترتيب حسب الأحدث
+                           ->paginate(15); // تقسيم النتائج على صفحات
+
+        // ستنشئ الواجهة لاحقاً: resources/views/problems/index.blade.php
+        return view('problems.index', compact('problems'));
+    }
+
+    /**
+     * Show the form for creating a new problem.
+     */
+    public function create()
+    {
+        // يجب أن يكون المستخدم مسجل دخول
+        // هذا مضمون بواسطة middleware 'auth' على المسار
+        $categories = ProblemCategory::all(); // لجلب الفئات لعرضها في النموذج
+
+        // ستنشئ الواجهة لاحقاً: resources/views/problems/create.blade.php
+        return view('problems.create', compact('categories'));
+    }
+
+    /**
+     * Store a newly created problem in storage.
+     */
+    public function store(Request $request)
+    {
+        // يجب أن يكون المستخدم مسجل دخول
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'category_id' => 'required|exists:problem_categories,id', // التحقق من وجود الفئة
+            'urgency' => ['required', Rule::in(['Low', 'Medium', 'High'])], // التحقق من قيم ENUM
+            'tags' => 'nullable|string', // يمكن إضافة تحقق على التنسيق لاحقاً
+        ]);
+
+        // إنشاء المشكلة وربطها بالحساب المسجل دخوله
+        $problem = Problem::create([
+            'title' => $request->title,
+            'description' => $request->description,
+            'submitted_by_account_id' => Auth::id(), // ربط المشكلة بالمستخدم الحالي
+            'category_id' => $request->category_id,
+            'urgency' => $request->urgency,
+            'status' => 'Published', // الحالة الافتراضية عند الإنشاء
+            'tags' => $request->tags,
+        ]);
+
+        // إعادة التوجيه إلى صفحة المشكلة التي تم إنشاؤها
+        return redirect()->route('problems.show', $problem)->with('success', 'Problem created successfully!');
+    }
+
+    /**
+     * Display the specified problem.
+     */
+    public function show(Problem $problem)
+    {
+        // تحميل العلاقة مع الناشر، الفئة، والتعليقات (مع مؤلفي التعليقات والردود والألقاب والحلول المعتمدة)
+        $problem->load([
+            'submittedBy.userProfile',
+            'submittedBy.organizationProfile',
+            'category',
+            'comments' => function ($query) {
+                $query->whereNull('parent_comment_id') // جلب التعليقات الجذرية فقط
+                      ->with('author.userProfile', 'author.organizationProfile', 'replies.author.userProfile', 'replies.author.organizationProfile', 'adoptedSolution'); // تحميل مؤلفي التعليقات والردود الحلول المعتمدة
+            }
+        ]);
+
+        // ستنشئ الواجهة لاحقاً: resources/views/problems/show.blade.php
+        return view('problems.show', compact('problem'));
+    }
+
+    /**
+     * Show the form for editing the specified problem.
+     */
+    public function edit(Problem $problem)
+    {
+        // التحقق من أن المستخدم هو صاحب المشكلة أو مسؤول
+        // يمكن استخدام Policies هنا لمزيد من التنظيم: php artisan make:policy ProblemPolicy
+        if ($problem->submitted_by_account_id !== Auth::id() && !Auth::user()->isAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $categories = ProblemCategory::all(); // لجلب الفئات لعرضها في النموذج
+
+        // ستنشئ الواجهة لاحقاً: resources/views/problems/edit.blade.php
+        return view('problems.edit', compact('problem', 'categories'));
+    }
+
+    /**
+     * Update the specified problem in storage.
+     */
+    public function update(Request $request, Problem $problem)
+    {
+         // التحقق من أن المستخدم هو صاحب المشكلة أو مسؤول
+         if ($problem->submitted_by_account_id !== Auth::id() && !Auth::user()->isAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'category_id' => 'required|exists:problem_categories,id',
+            'urgency' => ['required', Rule::in(['Low', 'Medium', 'High'])],
+            'tags' => 'nullable|string',
+            // إذا كان المسؤول يمكنه تغيير الحالة: 'status' => ['required', Rule::in(['Published', 'UnderReview', 'Hidden', 'Suspended', 'Resolved', 'Archived'])],
+        ]);
+
+        // تحديث بيانات المشكلة
+        $problem->update($request->only(['title', 'description', 'category_id', 'urgency', 'tags']));
+
+        // يمكن هنا إضافة منطق لتغيير الحالة إذا كان المستخدم مسؤولاً
+        // if (Auth::user()->isAdmin() && $request->filled('status')) {
+        //    $problem->status = $request->status;
+        //    $problem->save();
+        // }
+
+
+        return redirect()->route('problems.show', $problem)->with('success', 'Problem updated successfully!');
+    }
+
+    /**
+     * Remove the specified problem from storage.
+     */
+    public function destroy(Problem $problem)
+    {
+        // التحقق من أن المستخدم هو صاحب المشكلة أو مسؤول
+         if ($problem->submitted_by_account_id !== Auth::id() && !Auth::user()->isAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $problem->delete(); // حذف المشكلة (المفاتيح الخارجية مع onDelete('cascade') ستحذف التعليقات المرتبطة تلقائياً)
+
+        return redirect()->route('problems.index')->with('success', 'Problem deleted successfully!');
+    }
+}
+```
+
+**5. `app/Http/Controllers/CommentController.php`**
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Comment;
+use App\Models\Problem; // قد نحتاج للتحقق من وجود المشكلة
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB; // قد نحتاجه لتحديث total_votes
+
+class CommentController extends Controller
+{
+    /**
+     * Store a newly created comment or reply in storage.
+     */
+    public function store(Request $request)
+    {
+        // يجب أن يكون المستخدم مسجل دخول
+        $request->validate([
+            'content' => 'required|string',
+            'problem_id' => 'required|exists:problems,id', // التحقق من وجود المشكلة
+            'parent_comment_id' => 'nullable|exists:comments,id', // التحقق من وجود التعليق الأم إذا كان رداً
+        ]);
+
+        // التأكد من أن التعليق الأم (إن وجد) ينتمي لنفس المشكلة (للحفاظ على التسلسل)
+        if ($request->filled('parent_comment_id')) {
+            $parentComment = Comment::findOrFail($request->parent_comment_id);
+            if ($parentComment->problem_id !== $request->problem_id) {
+                 return back()->withErrors(['parent_comment_id' => 'Parent comment does not belong to this problem.'])->withInput();
+            }
+        }
+
+
+        // إنشاء التعليق
+        $comment = Comment::create([
+            'content' => $request->content,
+            'author_account_id' => Auth::id(), // ربط التعليق بالمستخدم الحالي
+            'problem_id' => $request->problem_id,
+            'parent_comment_id' => $request->parent_comment_id,
+             'total_votes' => 0, // القيمة الأولية للتصويتات
+        ]);
+
+        // إعادة التوجيه غالباً إلى صفحة المشكلة مع التعليق الجديد
+        return redirect()->route('problems.show', $request->problem_id)
+                         ->with('success', 'Comment added successfully!')
+                         ->withFragment('comment-' . $comment->id); // يمكن التوجيه إلى التعليق الجديد
+
+    }
+
+    /**
+     * Show the form for editing the specified comment.
+     * (May be handled via AJAX or modal in the view)
+     */
+    public function edit(Comment $comment)
+    {
+         // التحقق من أن المستخدم هو صاحب التعليق أو مسؤول
+        if ($comment->author_account_id !== Auth::id() && !Auth::user()->isAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // إرجاع الواجهة أو بيانات التعليق للتعديل
+        // ستنشئ الواجهة لاحقاً: resources/views/comments/edit.blade.php (أو استخدمها لـ AJAX)
+        return view('comments.edit', compact('comment'));
+    }
+
+    /**
+     * Update the specified comment in storage.
+     */
+    public function update(Request $request, Comment $comment)
+    {
+        // التحقق من أن المستخدم هو صاحب التعليق أو مسؤول
+         if ($comment->author_account_id !== Auth::id() && !Auth::user()->isAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'content' => 'required|string',
+        ]);
+
+        // تحديث محتوى التعليق
+        $comment->update($request->only(['content']));
+
+        // إعادة التوجيه إلى صفحة المشكلة أو مكان التعليق
+        return redirect()->route('problems.show', $comment->problem_id)
+                         ->with('success', 'Comment updated successfully!')
+                         ->withFragment('comment-' . $comment->id);
+
+    }
+
+    /**
+     * Remove the specified comment from storage.
+     */
+    public function destroy(Comment $comment)
+    {
+        // التحقق من أن المستخدم هو صاحب التعليق أو مسؤول
+         if ($comment->author_account_id !== Auth::id() && !Auth::user()->isAdmin()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $problemId = $comment->problem_id; // حفظ معرّف المشكلة قبل الحذف
+
+        // ملاحظة: حذف تعليق أم سيحذف التعليقات الأبناء أيضاً إذا كان onDelete('cascade')
+        // الحلول المعتمدة المرتبطة بهذا التعليق ستُحذف أيضاً
+        $comment->delete();
+
+
+        return redirect()->route('problems.show', $problemId)->with('success', 'Comment deleted successfully!');
+    }
+}
+```
+
+**6. `app/Http/Controllers/CommentVoteController.php`**
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Comment;
+use App\Models\CommentVote;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB; // قد نحتاجه للتحديثات المجمعة أو المشغلات
+
+class CommentVoteController extends Controller
+{
+    /**
+     * Handle a vote on a comment.
+     * Expects comment_id and vote_type (+1 or -1).
+     */
+    public function vote(Request $request, Comment $comment)
+    {
+        // يجب أن يكون المستخدم مسجل دخول
+        // هذا مضمون بواسطة middleware 'auth' على المسار
+
+        $request->validate([
+            'vote_value' => ['required', 'integer', Rule::in([-1, 1])], // التحقق من أن القيمة هي +1 أو -1
+        ]);
+
+        $userAccount = Auth::user();
+
+        // لا يمكن للمستخدم التصويت على تعليقاته الخاصة
+        if ($comment->author_account_id === $userAccount->id) {
+            // يمكنك إرجاع رسالة خطأ أو تجاهل التصويت
+             return back()->with('error', 'You cannot vote on your own comment.');
+             // أو في حالة AJAX/API: return response()->json(['message' => 'Cannot vote on own comment'], 403);
+        }
+
+        // البحث عن التصويت الحالي لهذا المستخدم على هذا التعليق
+        $existingVote = CommentVote::where('comment_id', $comment->id)
+                                   ->where('voter_account_id', $userAccount->id)
+                                   ->first();
+
+        $newVoteValue = $request->vote_value;
+        $voteChange = 0; // التغيير الذي سيطرأ على total_votes
+
+        if ($existingVote) {
+            // إذا كان التصويت الحالي هو نفس التصويت الجديد، فهذا يعني سحب التصويت
+            if ($existingVote->vote_value === $newVoteValue) {
+                $existingVote->delete();
+                $voteChange = -$newVoteValue; // عكس قيمة التصويت المسحوب (إذا كان +1 يصبح -1، وإذا كان -1 يصبح +1)
+                $message = 'Vote removed.';
+            } else { // إذا كان التصويت الحالي مختلفاً عن التصويت الجديد، فهذا يعني تغيير التصويت
+                $existingVote->vote_value = $newVoteValue;
+                $existingVote->save();
+                $voteChange = $newVoteValue * 2; // مثال: من -1 إلى +1 يعني +2، من +1 إلى -1 يعني -2
+                $message = 'Vote changed successfully.';
+            }
+        } else {
+            // إذا لم يكن هناك تصويت سابق، قم بإنشاء تصويت جديد
+            CommentVote::create([
+                'comment_id' => $comment->id,
+                'voter_account_id' => $userAccount->id,
+                'vote_value' => $newVoteValue,
+            ]);
+            $voteChange = $newVoteValue; // إضافة قيمة التصويت الجديدة
+            $message = 'Vote recorded successfully.';
+        }
+
+        // تحديث إجمالي التصويتات في جدول Comments
+        // هذه طريقة بسيطة، يفضل استخدام مشغل (Trigger) في قاعدة البيانات
+        // أو نظام رسائل (Queues) لضمان مزامنة دقيقة وغير مانعة للطلب
+        $comment->total_votes += $voteChange;
+        $comment->save();
+
+        // يمكن هنا إضافة منطق لمنح نقاط للمستخدم الذي يتلقى upvotes لتعليقاته
+
+        // إعادة التوجيه أو إرجاع استجابة JSON إذا كانت العملية عبر AJAX
+        if ($request->expectsJson()) {
+             return response()->json(['message' => $message, 'new_total_votes' => $comment->total_votes]);
+        }
+
+        return back()->with('success', $message)->withFragment('comment-' . $comment->id); // التوجيه إلى التعليق
+
+    }
+}
+```
+
+**7. `app/Http/Controllers/BadgeController.php`**
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Badge;
+use Illuminate\Http\Request;
+
+class BadgeController extends Controller
+{
+    /**
+     * Display a listing of all available badges.
+     */
+    public function index()
+    {
+        $badges = Badge::all(); // جلب جميع الألقاب
+
+        // ستنشئ الواجهة لاحقاً: resources/views/badges/index.blade.php
+        return view('badges.index', compact('badges'));
+    }
+
+    // لا حاجة لدوال show, create, store, edit, update, destroy هنا
+    // إدارة الألقاب ستكون في لوحة تحكم المسؤول
+}
+```
+
+**8. `app/Http/Controllers/OrganizationController.php`**
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\OrganizationProfile;
+use App\Models\Comment;
+use App\Models\Solution; // نموذج الحل المعتمد
+use App\Models\Account; // لجلب مؤلف التعليق لمنحه النقاط
+use App\Models\ProblemCategory; // لإدارة اهتمامات الفئات
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+
+class OrganizationController extends Controller
+{
+     // يجب تطبيق middleware 'isOrganization' على جميع دوال هذا المتحكم عبر المسارات أو في الدالة الإنشائية (__construct)
+
+     public function __construct()
+     {
+        $this->middleware('isOrganization'); // هذا الـ middleware يجب أن تنشئه يدوياً (تحقق من نوع الحساب)
+     }
+
+    /**
+     * Handle the action of an organization adopting a comment as a solution.
+     */
+    public function adoptComment(Request $request, Comment $comment)
+    {
+        // التأكد أن المستخدم الحالي هو منظمة
+        $organizationAccount = Auth::user();
+        if (!$organizationAccount->isOrganization() || !$organizationAccount->organizationProfile) {
+             abort(403, 'Unauthorized action.'); // هذا يجب أن يتم بواسطة middleware 'isOrganization'
+        }
+
+        // التأكد من أن التعليق لم يتم اعتماده كحل بالفعل
+        if ($comment->adoptedSolution) {
+             return back()->with('error', 'This comment has already been adopted as a solution.');
+        }
+
+        // التأكد من أن التعليق ليس من تأليف نفس المنظمة (قاعدة عمل، يمكن تعديلها)
+         if ($comment->author_account_id === $organizationAccount->id) {
+             return back()->with('error', 'You cannot adopt your own comment as a solution.');
+         }
+
+        // الحصول على ملف المنظمة الحالي
+        $organizationProfile = $organizationAccount->organizationProfile;
+
+        // إنشاء سجل الحل المعتمد
+        $solution = Solution::create([
+            'comment_id' => $comment->id,
+            'adopting_organization_profile_id' => $organizationProfile->id,
+            'status' => 'UnderConsideration', // الحالة الأولية
+            'organization_notes' => 'Comment adopted for review.', // ملاحظة أولية
+        ]);
+
+        // --- منح نقاط لمؤلف التعليق ---
+        $authorAccount = Account::find($comment->author_account_id);
+        if ($authorAccount) {
+            $pointsToAdd = 100; // مثال: نقاط تمنح عند اعتماد تعليق كحل
+            $authorAccount->points += $pointsToAdd;
+            $authorAccount->save();
+
+            // هنا يمكنك إضافة منطق لفحص إذا كان المستخدم يستحق شارة جديدة بناءً على النقاط وعدد الحلول المعتمدة
+            // يمكنك استدعاء دالة مساعدة أو بث حدث (Event) هنا.
+            // Example: event(new \App\Events\CommentAdopted($comment, $organizationAccount, $pointsToAdd));
+        }
+         // --- نهاية منطق منح النقاط ---
+
+
+        return redirect()->route('organization.showAdoptedSolution', $solution)
+                         ->with('success', 'Comment adopted as a solution successfully! Points awarded to author.');
+    }
+
+    /**
+     * Display a listing of solutions adopted by the current organization.
+     */
+    public function listAdoptedSolutions()
+    {
+        $organizationAccount = Auth::user();
+        $organizationProfile = $organizationAccount->organizationProfile;
+
+        if (!$organizationProfile) {
+             return redirect()->route('home')->with('error', 'Organization profile not found.');
+        }
+
+        // جلب الحلول المعتمدة من قبل هذه المنظمة، مع تحميل التعليق الأصلي والمشكلة
+        $adoptedSolutions = Solution::where('adopting_organization_profile_id', $organizationProfile->id)
+                                     ->with('adoptedComment.problem', 'adoptedComment.author.userProfile', 'adoptedComment.author.organizationProfile')
+                                     ->latest()
+                                     ->paginate(10);
+
+        // ستنشئ الواجهة لاحقاً: resources/views/organization/adopted_solutions/index.blade.php
+        return view('organization.adopted_solutions.index', compact('adoptedSolutions', 'organizationProfile'));
+    }
+
+    /**
+     * Display the specified adopted solution for the organization.
+     */
+    public function showAdoptedSolution(Solution $solution)
+    {
+         $organizationAccount = Auth::user();
+
+         // التأكد أن هذه المنظمة هي من اعتمدت هذا الحل
+         if ($solution->adopting_organization_profile_id !== $organizationAccount->organizationProfile->id) {
+             abort(403, 'Unauthorized action.');
+         }
+
+         // تحميل العلاقات اللازمة
+         $solution->load('adoptedComment.problem', 'adoptedComment.author.userProfile', 'adoptedComment.author.organizationProfile');
+
+        // ستنشئ الواجهة لاحقاً: resources/views/organization/adopted_solutions/show.blade.php
+        return view('organization.adopted_solutions.show', compact('solution'));
+    }
+
+
+     /**
+     * Update the status of the specified adopted solution.
+     */
+    public function updateAdoptedSolutionStatus(Request $request, Solution $solution)
+    {
+        $organizationAccount = Auth::user();
+
+         // التأكد أن هذه المنظمة هي من اعتمدت هذا الحل
+         if ($solution->adopting_organization_profile_id !== $organizationAccount->organizationProfile->id) {
+             abort(403, 'Unauthorized action.');
+         }
+
+        $request->validate([
+            'status' => ['required', Rule::in(['UnderConsideration', 'Adopted', 'ImplementationInProgress', 'ImplementationCompleted', 'RejectedByOrganization'])],
+             'organization_notes' => 'nullable|string',
+        ]);
+
+        // تحديث الحالة والملاحظات
+        $solution->update($request->only(['status', 'organization_notes']));
+
+        return redirect()->route('organization.showAdoptedSolution', $solution)
+                         ->with('success', 'Solution status updated successfully!');
+    }
+
+     /**
+     * Show the form for editing organization category interests.
+     */
+    public function editCategoryInterests()
+    {
+        $organizationAccount = Auth::user();
+        $organizationProfile = $organizationAccount->organizationProfile;
+
+        if (!$organizationProfile) {
+             return redirect()->route('home')->with('error', 'Organization profile not found.');
+        }
+
+        $allCategories = ProblemCategory::whereNull('parent_category_id')->with('children')->get(); // جلب الفئات الرئيسية مع الفئات الفرعية
+        $organizationInterests = $organizationProfile->categoryInterests()->pluck('problem_category_id')->toArray(); // جلب معرّفات الفئات التي تهتم بها المنظمة حالياً
+
+        // ستنشئ الواجهة لاحقاً: resources/views/organization/category_interests/edit.blade.php
+        return view('organization.category_interests.edit', compact('organizationProfile', 'allCategories', 'organizationInterests'));
+    }
+
+     /**
+     * Update organization category interests.
+     */
+    public function updateCategoryInterests(Request $request)
+    {
+        $organizationAccount = Auth::user();
+        $organizationProfile = $organizationAccount->organizationProfile;
+
+        if (!$organizationProfile) {
+             return redirect()->route('home')->with('error', 'Organization profile not found.');
+        }
+
+        $request->validate([
+            'categories' => 'nullable|array', // يجب أن يكون مصفوفة
+            'categories.*' => 'exists:problem_categories,id', // كل عنصر في المصفوفة يجب أن يكون معرّف فئة موجود
+        ]);
+
+        $categoriesToSync = $request->input('categories', []); // الحصول على مصفوفة معرّفات الفئات المختارة
+
+        // استخدام دالة sync() للربط في الجداول Pivot
+        // هذه الدالة تحذف الارتباطات القديمة وتضيف الارتباطات الجديدة بناءً على المصفوفة المقدمة
+        $organizationProfile->categoryInterests()->sync($categoriesToSync);
+
+        return redirect()->route('organization.listAdoptedSolutions')->with('success', 'Category interests updated successfully!'); // يمكن التوجيه لصفحة أخرى مناسبة
+    }
+
+    // الدوال المتعلقة بـ SolutionController يمكن دمجها هنا أيضاً إذا أردت تبسيط الهيكل
+    // أو بقاؤها في SolutionController إذا كان المنطق المشترك بين المنظمات والمسؤولين (مثلاً عرض الحلول لكل المنظمات) أكثر منطقية هناك.
+}
+```
+**ملاحظة**: تحتاج لإنشاء Middleware باسم `IsOrganization` للتحقق من نوع الحساب. يمكنك إنشاءه باستخدام `php artisan make:middleware IsOrganization` وتعديل دالة `handle` للتحقق من `Auth::user()->isOrganization()`. ثم تسجيله في `app/Http/Kernel.php`.
+
+**9. `app/Http/Controllers/SolutionController.php`**
+
+هذا المتحكم يمكن استخدامه لعرض قائمة بجميع الحلول المعتمدة أو تفاصيل حل معين بشكل عام (للمسؤولين مثلاً أو في صفحة عرض الحلول المعتمدة بشكل عام).
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Solution;
+use Illuminate\Http\Request;
+
+class SolutionController extends Controller
+{
+    /**
+     * Display a listing of all adopted solutions (potentially for admin or general viewing).
+     */
+    public function index()
+    {
+        // يمكن تصفية هذه القائمة للمسؤولين فقط أو عرضها بشكل عام
+        // لنفترض هنا أنها لوحة عرض عامة للحلول الناجحة
+        $adoptedSolutions = Solution::with('adoptedComment.problem', 'adoptingOrganization.account', 'adoptedComment.author.userProfile', 'adoptedComment.author.organizationProfile')
+                                     // يمكن إضافة تصفية للحالة مثلاً 'ImplementationCompleted' أو 'Adopted'
+                                     // ->where('status', 'ImplementationCompleted')
+                                     ->latest('updated_at') // ترتيب حسب آخر تحديث للحالة
+                                     ->paginate(15);
+
+        // ستنشئ الواجهة لاحقاً: resources/views/solutions/index.blade.php
+        return view('solutions.index', compact('adoptedSolutions'));
+    }
+
+    /**
+     * Display the specified adopted solution.
+     */
+    public function show(Solution $solution)
+    {
+        // تحميل العلاقات اللازمة
+        $solution->load('adoptedComment.problem', 'adoptingOrganization.account', 'adoptedComment.author.userProfile', 'adoptedComment.author.organizationProfile');
+
+        // ستنشئ الواجهة لاحقاً: resources/views/solutions/show.blade.php
+        return view('solutions.show', compact('solution'));
+    }
+
+    // يمكن إضافة دوال أخرى هنا إذا كانت هناك عمليات عامة على الحلول (غير خاصة بالمنظمة التي اعتمدتها)
+    // إدارة الحالة أو الحذف ستكون في متحكم المسؤول
+}
+```
+
+**10. `app/Http/Controllers/AdminController.php`**
+
+هذا المتحكم سيكون نقطة الدخول لإدارة الموقع من قبل المسؤولين. المتحكمات المنفصلة ضمن مجلد `Admin` (مثل `Admin\AccountsController`, `Admin\ProblemsController`) هي ممارسة أفضل لمشروع أكبر، لكن لهذا المثال سنضع الوظائف الأساسية هنا.
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Account;
+use App\Models\Problem;
+use App\Models\Comment;
+use App\Models\Solution;
+use App\Models\ProblemCategory;
+use App\Models\Badge;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Hash;
+
+class AdminController extends Controller
+{
+    // يجب تطبيق middleware 'isAdmin' على جميع دوال هذا المتحكم عبر المسارات أو في الدالة الإنشائية (__construct)
+
+    public function __construct()
+    {
+       $this->middleware('isAdmin'); // هذا الـ middleware يجب أن تنشئه يدوياً (تحقق من نوع الحساب 'admin')
+    }
+
+    /**
+     * Display the admin dashboard.
+     */
+    public function dashboard()
+    {
+        // جلب إحصائيات سريعة للمسؤول (عدد المستخدمين، المشاكل، الحلول، إلخ)
+        $accountsCount = Account::count();
+        $problemsCount = Problem::count();
+        $commentsCount = Comment::count();
+        $adoptedSolutionsCount = Solution::count();
+
+        // ستنشئ الواجهة لاحقاً: resources/views/admin/dashboard.blade.php
+        return view('admin.dashboard', compact('accountsCount', 'problemsCount', 'commentsCount', 'adoptedSolutionsCount'));
+    }
+
+    // --- Account Management ---
+    // تستخدم للمسارات admin/accounts
+
+    public function indexAccounts() // استخدم تسمية مميزة لتجنب التضارب إذا دمجت جداول متعددة في متحكم واحد
+    {
+        $accounts = Account::with('userProfile', 'organizationProfile')->paginate(20);
+        // ستنشئ الواجهة لاحقاً: resources/views/admin/accounts/index.blade.php
+        return view('admin.accounts.index', compact('accounts'));
+    }
+
+    public function editAccount(Account $account)
+    {
+        $account->load('userProfile', 'organizationProfile');
+        // ستنشئ الواجهة لاحقاً: resources/views/admin/accounts/edit.blade.php
+         return view('admin.accounts.edit', compact('account'));
+    }
+
+     public function updateAccount(Request $request, Account $account)
+    {
+        $request->validate([
+            'username' => ['required', 'string', 'max:255', Rule::unique('accounts')->ignore($account->id)],
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('accounts')->ignore($account->id)],
+            'account_type' => ['required', 'string', Rule::in(['individual', 'organization', 'admin'])],
+            'points' => 'required|integer|min:0',
+            'is_active' => 'boolean',
+            // يمكن إضافة تحقق لحقول ملفات التعريف هنا أو في دوال تحديث منفصلة
+        ]);
+
+        $account->update($request->only(['username', 'email', 'account_type', 'points', 'is_active']));
+
+        // تحديث ملف التعريف المرتبط إذا لزم الأمر (منطق أكثر تعقيداً إذا سمح بتغيير النوع)
+
+        return redirect()->route('admin.accounts.index')->with('success', 'Account updated successfully.');
+    }
+
+    public function destroyAccount(Account $account)
+    {
+        // تحذير: حذف حساب سيحذف كل شيء مرتبط به بسبب onDelete('cascade')
+        // يجب تأكيد هذه العملية في الواجهة
+        $account->delete();
+        return redirect()->route('admin.accounts.index')->with('success', 'Account deleted successfully.');
+    }
+
+
+    // --- Problem Management ---
+    // تستخدم للمسارات admin/problems (resource)
+
+     public function indexProblems() // استخدم تسمية مميزة
+    {
+        $problems = Problem::with('submittedBy', 'category')->latest()->paginate(20);
+        // ستنشئ الواجهة لاحقاً: resources/views/admin/problems/index.blade.php
+        return view('admin.problems.index', compact('problems'));
+    }
+
+     public function editProblem(Problem $problem) // تستخدم للمسار problems/{problem}/edit
+    {
+         $categories = ProblemCategory::all();
+        // ستنشئ الواجهة لاحقاً: resources/views/admin/problems/edit.blade.php
+         return view('admin.problems.edit', compact('problem', 'categories'));
+    }
+
+    public function updateProblem(Request $request, Problem $problem) // تستخدم للمسار problems/{problem} (PUT)
+    {
+         $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'category_id' => 'required|exists:problem_categories,id',
+            'urgency' => ['required', Rule::in(['Low', 'Medium', 'High'])],
+            'status' => ['required', Rule::in(['Draft', 'Published', 'UnderReview', 'Hidden', 'Suspended', 'Resolved', 'Archived'])], // المسؤول يمكنه تغيير كل الحالات
+            'tags' => 'nullable|string',
+        ]);
+
+        $problem->update($request->only(['title', 'description', 'category_id', 'urgency', 'status', 'tags']));
+
+        return redirect()->route('admin.problems.index')->with('success', 'Problem updated successfully.');
+    }
+
+    public function destroyProblem(Problem $problem) // تستخدم للمسار problems/{problem} (DELETE)
+    {
+        $problem->delete();
+        return redirect()->route('admin.problems.index')->with('success', 'Problem deleted successfully.');
+    }
+
+    // --- Category Management ---
+    // تستخدم للمسارات admin/categories (resource)
+
+    public function indexCategories() { /* ... */ }
+    public function createCategory() { /* ... */ }
+    public function storeCategory(Request $request) { /* ... */ }
+    public function editCategory(ProblemCategory $category) { /* ... */ }
+    public function updateCategory(Request $request, ProblemCategory $category) { /* ... */ }
+    public function destroyCategory(ProblemCategory $category) { /* ... */ }
+
+
+    // --- Badge Management ---
+    // تستخدم للمسارات admin/badges (resource)
+
+    public function indexBadges() { /* ... */ }
+    public function createBadge() { /* ... */ }
+    public function storeBadge(Request $request) { /* ... */ }
+    public function editBadge(Badge $badge) { /* ... */ }
+    public function updateBadge(Request $request, Badge $badge) { /* ... */ }
+    public function destroyBadge(Badge $badge) { /* ... */ }
+    // يمكن إضافة دالة لمنح شارة لمستخدم معين يدوياً
+
+    // --- Adopted Solution Management ---
+    // تستخدم للمسارات admin/solutions (resource)
+
+    public function indexAdoptedSolutions() // استخدم تسمية مميزة
+    {
+        $adoptedSolutions = Solution::with('adoptedComment.problem', 'adoptingOrganization.account', 'adoptedComment.author')->latest('updated_at')->paginate(20);
+         // ستنشئ الواجهة لاحقاً: resources/views/admin/solutions/index.blade.php
+        return view('admin.solutions.index', compact('adoptedSolutions'));
+    }
+
+     public function showAdoptedSolution(Solution $solution) // تستخدم للمسار solutions/{solution}
+    {
+         $solution->load('adoptedComment.problem', 'adoptingOrganization.account', 'adoptedComment.author.userProfile', 'adoptedComment.author.organizationProfile');
+         // ستنشئ الواجهة لاحقاً: resources/views/admin/solutions/show.blade.php
+        return view('admin.solutions.show', compact('solution'));
+    }
+
+    public function updateAdoptedSolution(Request $request, Solution $solution) // تستخدم للمسار solutions/{solution} (PUT)
+    {
+         $request->validate([
+            'status' => ['required', Rule::in(['UnderConsideration', 'Adopted', 'ImplementationInProgress', 'ImplementationCompleted', 'RejectedByOrganization'])],
+             'organization_notes' => 'nullable|string',
+             // المسؤول قد يغير المنظمة المعتمدة أو التعليق المرتبط! (لكن هذا نادر ومعقد)
+        ]);
+
+        $solution->update($request->only(['status', 'organization_notes']));
+
+        return redirect()->route('admin.solutions.index')->with('success', 'Adopted solution updated successfully.');
+    }
+
+     public function destroyAdoptedSolution(Solution $solution) // تستخدم للمسار solutions/{solution} (DELETE)
+    {
+        $solution->delete();
+        return redirect()->route('admin.solutions.index')->with('success', 'Adopted solution deleted successfully.');
+    }
+
+    // ... يمكن إضافة المزيد من الدوال الإدارية للتعليقات يدوياً، التقارير، إلخ.
+}
+```
+
+**ملاحظات هامة:**
+
+*   **Middleware:** تحتاج لإنشاء Middleware باسم `IsOrganization` و `IsAdmin` للتحقق من نوع الحساب المسجل دخوله قبل السماح بالوصول إلى المسارات الخاصة بالمنظمات أو المسؤولين. قم بإنشاء هذه الـ Middlewares باستخدام `php artisan make:middleware IsOrganization` و `php artisan make:middleware IsAdmin`، ثم قم بتسجيلها في ملف `app/Http/Kernel.php` في مصفوفة `$routeMiddleware`. داخل دالة `handle` في كل Middleware، قم بالتحقق من `Auth::check()` ثم من `Auth::user()->account_type`.
+*   **Authorization (الصلاحيات):** بالإضافة إلى التحقق من نوع الحساب (Middleware)، يجب عليك تطبيق منطق التحقق من الصلاحيات الدقيق داخل المتحكمات. مثلاً، التأكد أن المستخدم الذي يحاول تعديل مشكلة هو فعلاً صاحب المشكلة أو مسؤول. Laravel Policies هي الأداة المناسبة لذلك (`php artisan make:policy ProblemPolicy`).
+*   **Validation:** تم إضافة قواعد تحقق أساسية في معظم الدوال التي تستقبل بيانات (`store`, `update`). يجب عليك توسيع هذه القواعد لتغطية جميع الحالات.
+*   **الواجهات (Views):** المتحكمات الآن جاهزة لاستدعاء الواجهات المناسبة (`return view(...)`). خطوتك التالية هي إنشاء مجلد `resources/views` داخله مجلدات فرعية مثل `auth`, `problems`, `profiles`, `admin`, إلخ، ووضع ملفات `blade.php` بداخلها لتصميم الواجهة الأمامية.
+*   **Ajax/API:** بعض العمليات (مثل التصويت على التعليقات، أو ربما إضافة التعليقات والردود بدون تحديث كامل للصفحة) قد تكون أفضل عبر Ajax أو API. إذا اخترت ذلك، ستحتاج لتعريف مسارات API في `routes/api.php` وتعديل المتحكمات المعنية لترجع استجابات JSON بدلاً من إعادة التوجيه أو الواجهات. المتحكم `CommentVoteController` مهيأ بالفعل ليرجع JSON إذا كان الطلب يتوقع ذلك.
+*   **المرونة:** الهيكل المقترح يحاول الفصل بين الاهتمامات قدر الإمكان. يمكنك دمج بعض الدوال في متحكمات أقل إذا كان المشروع صغيراً، أو توسيعها إلى متحكمات أكثر تخصصًا إذا أصبح المشروع كبيراً ومعقداً (كما أشرت لمتحكمات Admin المنفصلة).
+
+الآن لديك أساس المتحكمات والمسارات لمشروعك. الخطوة التالية الأكثر وضوحًا هي البدء في بناء الواجهات (Views) لكل صفحة تشير إليها المتحكمات.
+
+
+
+-----------
+
+تمام، دعنا ننفذ الملاحظات الهامة المتعلقة بالـ Middleware والصلاحيات (Policies).
+
+**أولاً: إنشاء وتسجيل Middleware للتحقق من نوع الحساب**
+
+سنقوم بإنشاء اثنين من Middlewares: واحد للمنظمات (`IsOrganization`) والآخر للمسؤولين (`IsAdmin`).
+
+1.  **إنشاء ملفات Middleware:**
+
+    نفّذ الأوامر التالية في سطر الأوامر داخل مجلد مشروعك:
+
+    ```bash
+    php artisan make:middleware IsOrganization
+    php artisan make:middleware IsAdmin
+    ```
+
+    سيتم إنشاء الملفين في المجلد `app/Http/Middleware`.
+
+2.  **ملء محتوى ملف `IsOrganization.php`:**
+
+    افتح الملف `app/Http/Middleware/IsOrganization.php` واملأ دالة `handle` كالتالي:
+
+    ```php
+    <?php
+
+    namespace App\Http\Middleware;
+
+    use Closure;
+    use Illuminate\Http\Request;
+    use Illuminate\Support\Facades\Auth; // لاستخدام Auth Facade
+    use Symfony\Component\HttpFoundation\Response;
+
+    class IsOrganization
+    {
+        /**
+         * Handle an incoming request.
+         *
+         * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+         */
+        public function handle(Request $request, Closure $next): Response
+        {
+            // التحقق أولاً إذا كان المستخدم مسجل دخول
+            if (!Auth::check()) {
+                // إذا لم يكن مسجل دخول، قم بإعادة التوجيه إلى صفحة تسجيل الدخول أو عرض خطأ 403
+                 return redirect()->route('login'); // أو abort(403, 'Unauthorized.');
+            }
+
+            // التحقق إذا كان الحساب المسجل دخوله هو من نوع 'organization'
+            if (Auth::user()->account_type !== 'organization') {
+                // إذا لم يكن من نوع منظمة، عرض خطأ 403 ممنوع
+                abort(403, 'Access Denied. Organizations only.');
+            }
+
+            // إذا كان مسجل دخول ومن نوع منظمة، استمر في معالجة الطلب
+            return $next($request);
+        }
+    }
+    ```
+
+3.  **ملء محتوى ملف `IsAdmin.php`:**
+
+    افتح الملف `app/Http/Middleware/IsAdmin.php` واملأ دالة `handle` كالتالي:
+
+    ```php
+    <?php
+
+    namespace App\Http\Middleware;
+
+    use Closure;
+    use Illuminate\Http\Request;
+    use Illuminate\Support\Facades\Auth; // لاستخدام Auth Facade
+    use Symfony\Component\HttpFoundation\Response;
+
+    class IsAdmin
+    {
+        /**
+         * Handle an incoming request.
+         *
+         * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+         */
+        public function handle(Request $request, Closure $next): Response
+        {
+            // التحقق أولاً إذا كان المستخدم مسجل دخول
+            if (!Auth::check()) {
+                 return redirect()->route('login'); // أو abort(403, 'Unauthorized.');
+            }
+
+            // التحقق إذا كان الحساب المسجل دخوله هو من نوع 'admin'
+            if (Auth::user()->account_type !== 'admin') {
+                // إذا لم يكن من نوع مسؤول، عرض خطأ 403 ممنوع
+                abort(403, 'Access Denied. Admins only.');
+            }
+
+            // إذا كان مسجل دخول ومن نوع مسؤول، استمر في معالجة الطلب
+            return $next($request);
+        }
+    }
+    ```
+
+4.  **تسجيل Middleware في `app/Http/Kernel.php`:**
+
+    افتح الملف `app/Http/Kernel.php`، وابحث عن المصفوفة `$routeMiddleware`. أضف مفتاحًا وقيمة لكل Middleware جديد:
+
+    ```php
+    protected $routeMiddleware = [
+        // ... Middlewares الأخرى الموجودة
+        'auth' => \Illuminate\Auth\Middleware\Authenticate::class,
+        'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
+        'cache.headers' => \Illuminate\Http\Middleware\SetCacheHeaders::class,
+        'can' => \Illuminate\Auth\Middleware\Authorize::class,
+        'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
+        'signed' => \Illuminate\Routing\Middleware\ValidateSignature::class,
+        'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
+        'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
+
+        // سجل Middlewares المخصصة هنا
+        'isOrganization' => \App\Http\Middleware\IsOrganization::class,
+        'isAdmin' => \App\Http\Middleware\IsAdmin::class,
+    ];
+    ```
+
+الآن يمكنك استخدام المفاتيح `'isOrganization'` و `'isAdmin'` في تعريف المسارات لتطبيق هذه القيود.
+
+**ثانياً: إنشاء Policy للتحقق من الصلاحيات الدقيقة (ProblemPolicy كمثال)**
+
+Policy هي فئة تنظم منطق الصلاحيات لموديل معين.
+
+1.  **إنشاء ملف Policy:**
+
+    نفّذ الأمر التالي:
+
+    ```bash
+    php artisan make:policy ProblemPolicy --model=Problem
+    ```
+
+    سيتم إنشاء الملف في `app/Policies/ProblemPolicy.php` وتضمين النموذج `Problem` تلقائيًا.
+
+2.  **ملء محتوى ملف `ProblemPolicy.php`:**
+
+    سنقوم بتعريف الدوال الأساسية للتحقق من صلاحيات إنشاء، تعديل، وحذف المشاكل.
+
+    ```php
+    <?php
+
+    namespace App\Policies;
+
+    use App\Models\Account; // استخدم نموذج الحساب الخاص بك
+    use App\Models\Problem;
+    use Illuminate\Auth\Access\Response;
+
+    class ProblemPolicy
+    {
+        /**
+         * Determine whether the user can view any models.
+         */
+        public function viewAny(Account $account): bool
+        {
+            // يمكن لأي مستخدم مسجل دخول عرض قائمة المشاكل المنشورة
+            // منطق العرض نفسه (فلترة المشاكل المنشورة) يتم في المتحكم
+            return true;
+        }
+
+        /**
+         * Determine whether the user can view the model.
+         */
+        public function view(Account $account, Problem $problem): bool
+        {
+            // يمكن لأي مستخدم مسجل دخول عرض مشكلة منشورة
+            // يمكن تعديل هذا إذا كانت هناك حالات خاصة (مسودات للمالك، إلخ)
+             return $problem->status === 'Published' || ($problem->status === 'Draft' && $account->id === $problem->submitted_by_account_id) || $account->isAdmin();
+        }
+
+
+         /**
+         * Determine whether the user can create models.
+         */
+        public function create(Account $account): bool
+        {
+            // يمكن للأفراد والمنظمات إنشاء مشاكل
+            // المسؤولين يمكنهم إنشاء مشاكل أيضاً (يمكن تعديل الشرط إذا كانوا لا يفعلون ذلك عبر الواجهة العادية)
+            return in_array($account->account_type, ['individual', 'organization', 'admin']);
+        }
+
+        /**
+         * Determine whether the user can update the model.
+         */
+        public function update(Account $account, Problem $problem): bool
+        {
+            // يمكن للمستخدم تحديث المشكلة إذا كان هو صاحبها
+            return $account->id === $problem->submitted_by_account_id;
+
+            // ملاحظة: صلاحية المسؤول للتحكم بالمشاكل ستتم معالجتها في دالة before
+        }
+
+        /**
+         * Determine whether the user can delete the model.
+         */
+        public function delete(Account $account, Problem $problem): bool
+        {
+            // يمكن للمستخدم حذف المشكلة إذا كان هو صاحبها
+            return $account->id === $problem->submitted_by_account_id;
+
+            // ملاحظة: صلاحية المسؤول للحذف ستتم معالجتها في دالة before
+        }
+
+        // يمكنك إضافة المزيد من الدوال مثل forceDelete, restore إذا كانت منطقية لتطبيقك
+
+        /**
+         * Determine whether the user can permanently delete the model.
+         */
+        public function forceDelete(Account $account, Problem $problem): bool
+        {
+            // عادةً، فقط المسؤول يمكنه الحذف النهائي
+            return $account->isAdmin();
+        }
+
+        /**
+         * Determine whether the user can restore the model.
+         */
+        public function restore(Account $account, Problem $problem): bool
+        {
+            // عادةً، فقط المسؤول يمكنه استعادة مشكلة محذوفة (soft delete)
+             return $account->isAdmin();
+        }
+
+
+         /**
+         * Perform pre-authorization checks.
+         * تسمح للمسؤول بتجاوز جميع الفحوصات الأخرى.
+         * تُستدعى قبل أي دالة صلاحية أخرى في هذا Policy.
+         */
+        public function before(Account $account, string $ability): bool|null
+        {
+            // إذا كان المستخدم مسؤولاً، اسمح له بالقيام بأي شيء
+            if ($account->isAdmin()) {
+                return true;
+            }
+
+            // أرجع null للسماح للدالة المحددة (update, delete, etc.) بمعالجة الطلب
+            return null;
+        }
+    }
+    ```
+
+3.  **تسجيل Policy في `AuthServiceProvider`:**
+
+    افتح الملف `app/Providers/AuthServiceProvider.php`. ابحث عن المصفوفة `$policies` وأضف السطر التالي لربط نموذج `Problem` بـ `ProblemPolicy`:
+
+    ```php
+    protected $policies = [
+        // 'App\Models\Model' => 'App\Policies\ModelPolicy', // مثال افتراضي
+        \App\Models\Problem::class => \App\Policies\ProblemPolicy::class,
+         \App\Models\Comment::class => \App\Policies\CommentPolicy::class, // ستنشئها لاحقاً
+         \App\Models\Solution::class => \App\Policies\SolutionPolicy::class, // ستنشئها لاحقاً للمسؤولين أو المنظمات
+         \App\Models\Account::class => \App\Policies\AccountPolicy::class, // لصلاحيات تعديل الحسابات (للمسؤول أو صاحب الحساب)
+         // ... إلخ لباقي النماذج التي تتطلب صلاحيات دقيقة
+    ];
+    ```
+
+**ثالثاً: استخدام Policies في المتحكمات (تعديل ProblemController كمثال)**
+
+الآن، بدلًا من التحقق اليدوي من الصلاحيات داخل دالة المتحكم، سنستخدم الدالة المساعدة `authorize` المتوفرة.
+
+افتح ملف `app/Http/Controllers/ProblemController.php` وعدّل الدوال التالية لاستخدام `authorize`:
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Problem;
+use App\Models\ProblemCategory;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
+use Illuminate\Auth\Access\AuthorizationException; // استورد هذا لاستخدامه في catch إذا لزم الأمر
+
+class ProblemController extends Controller
+{
+     // يمكن هنا تعريف middleware auth في الدالة الإنشائية للتأكد أن المستخدم مسجل دخول لجميع الدوال باستثناء index و show
+    public function __construct()
+    {
+       $this->middleware('auth')->except(['index', 'show']);
+       // Middleware الصلاحيات الدقيقة (can) يمكن تطبيقه هنا أيضاً أو تركه في الدالة نفسها
+       // $this->middleware('can:create,App\Models\Problem')->only(['create', 'store']);
+       // $this->middleware('can:update,problem')->only(['edit', 'update']);
+       // $this->middleware('can:delete,problem')->only(['destroy']);
+    }
+
+    /**
+     * Show the form for creating a new problem.
+     */
+    public function create()
+    {
+        // التحقق من صلاحية إنشاء مشكلة باستخدام Policy
+        $this->authorize('create', Problem::class); // يمرر اسم النموذج للفحص في Policy
+
+        $categories = ProblemCategory::all();
+        return view('problems.create', compact('categories'));
+    }
+
+    /**
+     * Store a newly created problem in storage.
+     */
+    public function store(Request $request)
+    {
+        // التحقق من صلاحية إنشاء مشكلة باستخدام Policy
+        $this->authorize('create', Problem::class);
+
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'category_id' => 'required|exists:problem_categories,id',
+            'urgency' => ['required', Rule::in(['Low', 'Medium', 'High'])],
+            'tags' => 'nullable|string',
+        ]);
+
+        $problem = Problem::create([
+            'title' => $request->title,
+            'description' => $request->description,
+            'submitted_by_account_id' => Auth::id(),
+            'category_id' => $request->category_id,
+            'urgency' => $request->urgency,
+            'status' => 'Published',
+            'tags' => $request->tags,
+        ]);
+
+        return redirect()->route('problems.show', $problem)->with('success', 'Problem created successfully!');
+    }
+
+    /**
+     * Show the form for editing the specified problem.
+     */
+    public function edit(Problem $problem)
+    {
+        // التحقق من صلاحية تحديث هذه المشكلة بالذات باستخدام Policy
+        $this->authorize('update', $problem); // يمرر كائن النموذج للفحص في Policy
+
+        $categories = ProblemCategory::all();
+        return view('problems.edit', compact('problem', 'categories'));
+    }
+
+    /**
+     * Update the specified problem in storage.
+     */
+    public function update(Request $request, Problem $problem)
+    {
+         // التحقق من صلاحية تحديث هذه المشكلة بالذات باستخدام Policy
+        $this->authorize('update', $problem);
+
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string',
+            'category_id' => 'required|exists:problem_categories,id',
+            'urgency' => ['required', Rule::in(['Low', 'Medium', 'High'])],
+            'tags' => 'nullable|string',
+        ]);
+
+        $problem->update($request->only(['title', 'description', 'category_id', 'urgency', 'tags']));
+
+        return redirect()->route('problems.show', $problem)->with('success', 'Problem updated successfully!');
+    }
+
+    /**
+     * Remove the specified problem from storage.
+     */
+    public function destroy(Problem $problem)
+    {
+        // التحقق من صلاحية حذف هذه المشكلة بالذات باستخدام Policy
+        $this->authorize('delete', $problem);
+
+        $problem->delete();
+
+        return redirect()->route('problems.index')->with('success', 'Problem deleted successfully!');
+    }
+
+     /**
+     * Display a listing of the problems.
+     * (هذه الدالة لا تتطلب تسجيل دخول، لكن منطق فلترة المشاكل يتم داخل الدالة نفسها)
+     */
+    public function index()
+    {
+        // لا نستخدم authorize هنا لأن عرض القائمة عام، ولكن يمكن إضافة policy viewAny إذا أردنا قيوداً على من يمكنه رؤية القائمة بالكامل.
+         // $this->authorize('viewAny', Problem::class);
+
+        $problems = Problem::where('status', 'Published')
+                           ->with('submittedBy.userProfile', 'submittedBy.organizationProfile', 'category')
+                           ->latest()
+                           ->paginate(15);
+
+        return view('problems.index', compact('problems'));
+    }
+
+    /**
+     * Display the specified problem.
+     * (هذه الدالة أيضاً يمكن أن تكون عامة، ولكن policy view يمكن أن تفرض قيوداً على عرض المشاكل غير المنشورة)
+     */
+    public function show(Problem $problem)
+    {
+        // هنا يمكن استخدام policy للتأكد من أن المستخدم يمكنه رؤية هذه المشكلة بالذات
+        // مثلاً، مشكلة حالة 'Draft' لا يمكن رؤيتها إلا من قبل صاحبها أو المسؤول
+         try {
+            $this->authorize('view', $problem);
+         } catch (AuthorizationException $e) {
+             abort(404); // أو 403 حسب الرغبة، 404 يخفي وجودها تماماً
+         }
+
+
+        $problem->load([
+            'submittedBy.userProfile',
+            'submittedBy.organizationProfile',
+            'category',
+            'comments' => function ($query) {
+                $query->whereNull('parent_comment_id')
+                      ->with('author.userProfile', 'author.organizationProfile', 'replies.author.userProfile', 'replies.author.organizationProfile', 'adoptedSolution');
+            }
+        ]);
+
+        return view('problems.show', compact('problem'));
+    }
+
+}
+```
+
+**الخلاصة للملاحظات الهامة:**
+
+*   **Middleware:** تم إنشاء Middlewares `IsOrganization` و `IsAdmin` وتسجيلها في `Kernel.php` لتطبيق قيود الوصول على مستوى المسار بناءً على نوع الحساب.
+*   **Authorization (Policies):** تم إنشاء `ProblemPolicy` لتعريف منطق صلاحيات التعامل مع المشاكل (إنشاء، تعديل، حذف، عرض). تم استخدام دالة `before` للسماح للمسؤول بتجاوز الفحوصات الأخرى. تم تعديل `ProblemController` لاستخدام الدالة المساعدة `authorize()` للتحقق من الصلاحيات قبل تنفيذ الإجراءات.
+*   **Validation:** تم إضافة قواعد تحقق أساسية في الدوال التي تستقبل بيانات، ولكن كما ذكرنا سابقًا، يجب توسيعها لتغطية جميع السيناريوهات المطلوبة.
+*   **الواجهات (Views):** المتحكمات الآن تستدعي الواجهات. الخطوة التالية هي بناء ملفات `.blade.php` في المجلد `resources/views/` لتقديم المحتوى للمستخدمين.
+*   **Ajax/API:** تم التلميح إلى أن بعض العمليات (مثل التصويت) يمكن التعامل معها بشكل تفاعلي عبر Ajax/API. متحكم `CommentVoteController` مهيأ لإرجاع JSON لهذا الغرض.
+
+الآن لديك هيكل قوي للمصادقة والصلاحيات. الخطوة التالية المنطقية هي البدء في بناء الواجهة الأمامية باستخدام Blade Views أو أي تقنية واجهة أمامية أخرى تفضلها.
