@@ -4053,3 +4053,2211 @@ class ProblemController extends Controller
 *   **Ajax/API:** تم التلميح إلى أن بعض العمليات (مثل التصويت) يمكن التعامل معها بشكل تفاعلي عبر Ajax/API. متحكم `CommentVoteController` مهيأ لإرجاع JSON لهذا الغرض.
 
 الآن لديك هيكل قوي للمصادقة والصلاحيات. الخطوة التالية المنطقية هي البدء في بناء الواجهة الأمامية باستخدام Blade Views أو أي تقنية واجهة أمامية أخرى تفضلها.
+
+
+
+بالتأكيد. بعد إعداد قاعدة البيانات، النماذج، الهجرات، الـ Seeders (كهيكل)، المسارات، والمتحكمات (مع Middleware والصلاحيات الأساسية)، الخطوة التالية المنطقية لتشغيل المشروع على الويب ورؤية أي شيء في المتصفح هي **إنشاء ملفات الواجهة (Views)**.
+
+المتحكمات جاهزة الآن لجلب البيانات وإرسالها إلى الواجهات باستخدام `return view(...)`. يجب علينا الآن إنشاء هذه الملفات في المكان الصحيح (`resources/views`) وإعطائها بنية أساسية حتى يمكن عرضها.
+
+سنبدأ بإنشاء ملف تخطيط أساسي (layout) لتجنب تكرار عناصر مثل رأس الصفحة وتذييلها وقائمة التنقل، ثم سننشئ ملفات Blade لكل واجهة مطلوبة بناءً على المتحكمات والمسارات التي عرفناها.
+
+**الخطوة التالية: إنشاء ملفات الواجهة (Views)**
+
+1.  **إنشاء ملف التخطيط الأساسي (Layout):**
+    سننشئ ملفًا رئيسيًا يمكن لجميع الواجهات الأخرى أن ترث منه.
+    أنشئ المجلدات اللازمة: `resources/views/layouts/`
+    أنشئ الملف: `resources/views/layouts/app.blade.php`
+
+    ```html
+    <!DOCTYPE html>
+    <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>@yield('title', 'Syria Reconstruction Platform')</title>
+        <!-- يمكنك إضافة روابط لملفات CSS هنا -->
+        {{-- <link href="{{ asset('css/app.css') }}" rel="stylesheet"> --}}
+         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"> {{-- مثال Bootstrap --}}
+         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"> {{-- مثال Font Awesome --}}
+        <style>
+            .navbar { margin-bottom: 20px; }
+            .footer { margin-top: 20px; padding: 20px 0; background-color: #f8f9fa; }
+        </style>
+    </head>
+    <body>
+        <div id="app"> {{-- يمكن استخدام هذا للواجهة الأمامية التي تستخدم Vue/React --}}
+            <nav class="navbar navbar-expand-md navbar-light bg-white shadow-sm">
+                <div class="container">
+                    <a class="navbar-brand" href="{{ url('/') }}">
+                        Syria Reconstruction Platform
+                    </a>
+                    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="{{ __('Toggle navigation') }}">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+
+                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                        <!-- Left Side Of Navbar -->
+                        <ul class="navbar-nav mr-auto">
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ route('problems.index') }}">Problems</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ route('badges.index') }}">Badges</a>
+                            </li>
+                             {{-- Add more navigation links here --}}
+                        </ul>
+
+                        <!-- Right Side Of Navbar -->
+                        <ul class="navbar-nav ml-auto">
+                            <!-- Authentication Links -->
+                            @guest
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{{ route('login') }}">Login</a>
+                                </li>
+                                @if (Route::has('register'))
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ route('register') }}">Register</a>
+                                    </li>
+                                @endif
+                            @else
+                                <li class="nav-item dropdown">
+                                    <a id="navbarDropdown" class="nav-link dropdown-toggle" href="#" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" v-pre>
+                                        {{ Auth::user()->username }} {{-- عرض اسم المستخدم المسجل دخوله --}}
+                                    </a>
+
+                                    <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdown">
+                                        <a class="dropdown-item" href="{{ route('profiles.show', Auth::user()) }}">My Profile</a>
+                                        <a class="dropdown-item" href="{{ route('profile.edit') }}">Edit Profile</a>
+                                         <a class="dropdown-item" href="{{ route('profile.badges') }}">My Badges</a>
+
+                                        {{-- Add organization specific links if user is an organization --}}
+                                         @if (Auth::user()->isOrganization())
+                                             <a class="dropdown-item" href="{{ route('organization.listAdoptedSolutions') }}">My Adopted Solutions</a>
+                                             <a class="dropdown-item" href="{{ route('organization.editCategoryInterests') }}">My Interests</a>
+                                         @endif
+
+                                         {{-- Add admin specific links if user is an admin --}}
+                                         @if (Auth::user()->isAdmin())
+                                             <a class="dropdown-item" href="{{ route('admin.dashboard') }}">Admin Dashboard</a>
+                                         @endif
+
+                                        <a class="dropdown-item" href="{{ route('logout') }}"
+                                           onclick="event.preventDefault();
+                                                         document.getElementById('logout-form').submit();">
+                                            Logout
+                                        </a>
+
+                                        <form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">
+                                            @csrf
+                                        </form>
+                                    </div>
+                                </li>
+                            @endguest
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+
+            <main class="py-4">
+                <div class="container">
+                     {{-- Display success or error messages --}}
+                    @if (session('success'))
+                        <div class="alert alert-success">
+                            {{ session('success') }}
+                        </div>
+                    @endif
+
+                    @if (session('error'))
+                        <div class="alert alert-danger">
+                            {{ session('error') }}
+                        </div>
+                    @endif
+
+                    @if ($errors->any())
+                        <div class="alert alert-danger">
+                            <ul>
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
+
+                    @yield('content') {{-- هذا هو الجزء الذي سيتم ملؤه بمحتوى كل صفحة فردية --}}
+                </div>
+            </main>
+
+            <footer class="footer">
+                <div class="container text-center">
+                    <p>&copy; {{ date('Y') }} Syria Reconstruction Platform. All rights reserved.</p>
+                </div>
+            </footer>
+        </div>
+
+        <!-- يمكنك إضافة روابط لملفات JavaScript هنا -->
+        {{-- <script src="{{ asset('js/app.js') }}" defer></script> --}}
+        <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    </body>
+    </html>
+    ```
+    **ملاحظة:** هذا التخطيط يستخدم Bootstrap 4 كمثال بسيط للإطار (framing). يمكنك استبداله بأي مكتبة CSS/JS أخرى أو بناء التصميم الخاص بك. كما أنه يفترض أنك قمت بإعداد `npm install && npm run dev` أو `npm run build` إذا كنت تستخدم ملفات الأصول (assets) المضمنة في Laravel.
+
+2.  **إنشاء ملفات الواجهات الفردية:**
+    الآن سنقوم بإنشاء ملف `.blade.php` لكل واجهة استدعيناها في المتحكمات. سنضع فيها بنية أساسية وعلامات `yield` و `section`.
+
+    *   **Home (`HomeController@index`)**
+        *   المسار: `resources/views/home.blade.php`
+        *   البيانات المتاحة: `$recentProblems` (مجموعة من نماذج Problem مع تحميل submitterBy و category)
+
+        ```html
+        @extends('layouts.app')
+
+        @section('title', 'Home')
+
+        @section('content')
+            <h1>Welcome to the Syria Reconstruction Platform</h1>
+            <p>Share ideas and find solutions for post-liberation challenges.</p>
+
+            <h2>Recent Problems</h2>
+
+            @if ($recentProblems->isEmpty())
+                <p>No problems have been published yet.</p>
+            @else
+                <div class="list-group">
+                    @foreach ($recentProblems as $problem)
+                        <a href="{{ route('problems.show', $problem) }}" class="list-group-item list-group-item-action">
+                            <h5 class="mb-1">{{ $problem->title }}</h5>
+                            <p class="mb-1">{{ \Illuminate\Support\Str::limit($problem->description, 150) }}</p> {{-- مثال لاستخدام Str::limit --}}
+                            <small>Category: {{ $problem->category->name ?? 'N/A' }} | Submitted by: {{ $problem->submittedBy->username ?? 'N/A' }} | Urgency: {{ $problem->urgency }}</small>
+                        </a>
+                    @endforeach
+                </div>
+            @endif
+
+            {{-- يمكنك إضافة المزيد من الأقسام هنا (إحصائيات، آخر الحلول المعتمدة، إلخ) --}}
+
+        @endsection
+        ```
+        *ملاحظة:* تحتاج لاستخدام Facade `Str` لتحديد طول النص، تأكد من استيرادها في بداية ملف الـ Blade إذا لم تكن متاحة تلقائياً: `@use Illuminate\Support\Str;` (في Laravel 8+) أو استخدامها مباشرة مع `\` (`\Illuminate\Support\Str::limit(...)`).
+
+    *   **Authentication Views (`AuthController`)**
+        *   المجلد: `resources/views/auth/`
+
+        *   Login (`AuthController@showLoginForm`)
+            *   المسار: `resources/views/auth/login.blade.php`
+            *   البيانات المتاحة: (لا يوجد بيانات محددة يتم تمريرها عادةً، فقط يعتمد على جلسة الأخطاء أو النجاح)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Login')
+
+            @section('content')
+                <div class="row justify-content-center">
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">Login</div>
+
+                            <div class="card-body">
+                                <form method="POST" action="{{ route('login') }}">
+                                    @csrf {{-- CSRF Token --}}
+
+                                    <div class="form-group row">
+                                        <label for="email" class="col-md-4 col-form-label text-md-right">E-Mail Address</label>
+                                        <div class="col-md-6">
+                                            <input id="email" type="email" class="form-control @error('email') is-invalid @enderror" name="email" value="{{ old('email') }}" required autocomplete="email" autofocus>
+                                            @error('email')
+                                                <span class="invalid-feedback" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                            @enderror
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row">
+                                        <label for="password" class="col-md-4 col-form-label text-md-right">Password</label>
+                                        <div class="col-md-6">
+                                            <input id="password" type="password" class="form-control @error('password') is-invalid @enderror" name="password" required autocomplete="current-password">
+                                            @error('password')
+                                                <span class="invalid-feedback" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                            @enderror
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row">
+                                        <div class="col-md-6 offset-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="remember" id="remember" {{ old('remember') ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="remember">
+                                                    Remember Me
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row mb-0">
+                                        <div class="col-md-8 offset-md-4">
+                                            <button type="submit" class="btn btn-primary">
+                                                Login
+                                            </button>
+
+                                            {{-- يمكنك إضافة رابط "Forgot Your Password?" هنا إذا كان لديك هذه الميزة --}}
+                                            {{-- @if (Route::has('password.request'))
+                                                <a class="btn btn-link" href="{{ route('password.request') }}">
+                                                    Forgot Your Password?
+                                                </a>
+                                            @endif --}}
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endsection
+            ```
+
+        *   Register (`AuthController@showRegistrationForm`)
+            *   المسار: `resources/views/auth/register.blade.php`
+            *   البيانات المتاحة: (لا يوجد بيانات محددة، فقط يعتمد على جلسة الأخطاء)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Register')
+
+            @section('content')
+                <div class="row justify-content-center">
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">Register</div>
+
+                            <div class="card-body">
+                                <form method="POST" action="{{ route('register') }}">
+                                    @csrf {{-- CSRF Token --}}
+
+                                    <div class="form-group row">
+                                        <label for="username" class="col-md-4 col-form-label text-md-right">Username</label>
+                                        <div class="col-md-6">
+                                            <input id="username" type="text" class="form-control @error('username') is-invalid @enderror" name="username" value="{{ old('username') }}" required autocomplete="username" autofocus>
+                                            @error('username')
+                                                <span class="invalid-feedback" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                            @enderror
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row">
+                                        <label for="email" class="col-md-4 col-form-label text-md-right">E-Mail Address</label>
+                                        <div class="col-md-6">
+                                            <input id="email" type="email" class="form-control @error('email') is-invalid @enderror" name="email" value="{{ old('email') }}" required autocomplete="email">
+                                            @error('email')
+                                                <span class="invalid-feedback" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                            @enderror
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row">
+                                        <label for="password" class="col-md-4 col-form-label text-md-right">Password</label>
+                                        <div class="col-md-6">
+                                            <input id="password" type="password" class="form-control @error('password') is-invalid @enderror" name="password" required autocomplete="new-password">
+                                            @error('password')
+                                                <span class="invalid-feedback" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                            @enderror
+                                        </div>
+                                    </div>
+
+                                    <div class="form-group row">
+                                        <label for="password-confirm" class="col-md-4 col-form-label text-md-right">Confirm Password</label>
+                                        <div class="col-md-6">
+                                            <input id="password-confirm" type="password" class="form-control" name="password_confirmation" required autocomplete="new-password">
+                                        </div>
+                                    </div>
+
+                                     <div class="form-group row">
+                                        <label for="account_type" class="col-md-4 col-form-label text-md-right">Account Type</label>
+                                        <div class="col-md-6">
+                                            <select id="account_type" class="form-control @error('account_type') is-invalid @enderror" name="account_type" required>
+                                                <option value="">Select Type</option>
+                                                <option value="individual" {{ old('account_type') === 'individual' ? 'selected' : '' }}>Individual</option>
+                                                <option value="organization" {{ old('account_type') === 'organization' ? 'selected' : '' }}>Organization</option>
+                                                 {{-- 'admin' type is not for public registration --}}
+                                            </select>
+                                             @error('account_type')
+                                                <span class="invalid-feedback" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                            @enderror
+                                        </div>
+                                    </div>
+
+                                     {{-- Add conditional fields here based on account_type selection if needed --}}
+                                     {{-- Example: Organization Name field --}}
+                                     {{-- <div class="form-group row" id="organization-name-group" style="display: none;">
+                                        <label for="name" class="col-md-4 col-form-label text-md-right">Organization Name</label>
+                                        <div class="col-md-6">
+                                            <input id="name" type="text" class="form-control @error('name') is-invalid @enderror" name="name" value="{{ old('name') }}">
+                                            @error('name')
+                                                <span class="invalid-feedback" role="alert">
+                                                    <strong>{{ $message }}</strong>
+                                                </span>
+                                            @enderror
+                                        </div>
+                                    </div> --}}
+                                    {{-- You'll need JavaScript to show/hide these fields based on account_type select --}}
+
+
+                                    <div class="form-group row mb-0">
+                                        <div class="col-md-6 offset-md-4">
+                                            <button type="submit" class="btn btn-primary">
+                                                Register
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Add JavaScript for conditional fields here --}}
+                 {{-- <script>
+                     document.getElementById('account_type').addEventListener('change', function () {
+                         var orgNameGroup = document.getElementById('organization-name-group');
+                         if (this.value === 'organization') {
+                             orgNameGroup.style.display = 'flex'; // or 'block' depending on layout
+                         } else {
+                             orgNameGroup.style.display = 'none';
+                         }
+                     });
+                     // Trigger on page load in case old('account_type') is organization
+                     document.getElementById('account_type').dispatchEvent(new Event('change'));
+                 </script> --}}
+            @endsection
+            ```
+
+    *   **Problems Views (`ProblemController`)**
+        *   المجلد: `resources/views/problems/`
+
+        *   Index (`ProblemController@index`)
+            *   المسار: `resources/views/problems/index.blade.php`
+            *   البيانات المتاحة: `$problems` (Pagination Collection of Problem models)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Problems')
+
+            @section('content')
+                <h1>Problems</h1>
+
+                @auth {{-- Only show create button if authenticated --}}
+                    <p><a href="{{ route('problems.create') }}" class="btn btn-primary">Post a New Problem</a></p>
+                @endauth
+
+                @if ($problems->isEmpty())
+                    <p>No problems found.</p>
+                @else
+                    <div class="list-group">
+                        @foreach ($problems as $problem)
+                            <div class="list-group-item"> {{-- Use div instead of a if you add internal links --}}
+                                <a href="{{ route('problems.show', $problem) }}" class="text-decoration-none text-dark">
+                                    <h5 class="mb-1">{{ $problem->title }}</h5>
+                                </a>
+                                <p class="mb-1">{{ \Illuminate\Support\Str::limit($problem->description, 200) }}</p>
+                                <small>
+                                    Category: {{ $problem->category->name ?? 'N/A' }} |
+                                    Submitted by:
+                                    @if ($problem->submittedBy->isIndividual() && $problem->submittedBy->userProfile)
+                                        {{ $problem->submittedBy->userProfile->first_name ?? $problem->submittedBy->username }}
+                                    @elseif ($problem->submittedBy->isOrganization() && $problem->submittedBy->organizationProfile)
+                                         {{ $problem->submittedBy->organizationProfile->name ?? $problem->submittedBy->username }}
+                                    @else
+                                        {{ $problem->submittedBy->username ?? 'N/A' }}
+                                    @endif
+                                    | Urgency: {{ $problem->urgency }} | Status: {{ $problem->status }}
+                                    | Posted: {{ $problem->created_at->diffForHumans() }} {{-- مثال لعرض الوقت بشكل ودي --}}
+                                </small>
+
+                                {{-- Edit/Delete buttons for the owner or admin --}}
+                                @auth
+                                    @if (Auth::user()->id === $problem->submitted_by_account_id || Auth::user()->isAdmin())
+                                        <div class="mt-2">
+                                            <a href="{{ route('problems.edit', $problem) }}" class="btn btn-sm btn-secondary">Edit</a>
+                                            <form action="{{ route('problems.destroy', $problem) }}" method="POST" class="d-inline">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this problem?');">Delete</button>
+                                            </form>
+                                        </div>
+                                    @endif
+                                @endauth
+
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <div class="mt-3">
+                        {{ $problems->links() }} {{-- لعرض روابط ترقيم الصفحات --}}
+                    </div>
+
+                @endif
+
+            @endsection
+            ```
+
+        *   Show (`ProblemController@show`)
+            *   المسار: `resources/views/problems/show.blade.php`
+            *   البيانات المتاحة: `$problem` (Problem model مع تحميل submittedBy, category, comments (with author, replies, adoptedSolution))
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', $problem->title)
+
+            @section('content')
+                <h1>{{ $problem->title }}</h1>
+
+                <p>Category: {{ $problem->category->name ?? 'N/A' }} | Urgency: {{ $problem->urgency }} | Status: {{ $problem->status }}</p>
+                <p>Submitted by:
+                    @if ($problem->submittedBy->isIndividual() && $problem->submittedBy->userProfile)
+                        {{ $problem->submittedBy->userProfile->first_name ?? $problem->submittedBy->username }}
+                    @elseif ($problem->submittedBy->isOrganization() && $problem->submittedBy->organizationProfile)
+                         {{ $problem->submittedBy->organizationProfile->name ?? $problem->submittedBy->username }}
+                    @else
+                        {{ $problem->submittedBy->username ?? 'N/A' }}
+                    @endif
+                     on {{ $problem->created_at->format('Y-m-d') }}
+                 </p>
+                 @if ($problem->tags)
+                     <p>Tags: {{ $problem->tags }}</p> {{-- يمكنك تحويلها لروابط tags لاحقاً --}}
+                 @endif
+
+                <hr>
+
+                <p>{{ $problem->description }}</p>
+
+                 {{-- Edit/Delete buttons for the owner or admin --}}
+                @auth
+                    @if (Auth::user()->id === $problem->submitted_by_account_id || Auth::user()->isAdmin())
+                        <div class="mt-2">
+                            <a href="{{ route('problems.edit', $problem) }}" class="btn btn-sm btn-secondary">Edit Problem</a>
+                            <form action="{{ route('problems.destroy', $problem) }}" method="POST" class="d-inline">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this problem?');">Delete Problem</button>
+                            </form>
+                        </div>
+                    @endif
+                @endauth
+
+
+                <hr>
+
+                <h2>Comments ({{ $problem->comments->count() }})</h2>
+
+                {{-- Form to add a new root comment --}}
+                @auth
+                    <div class="card mb-3">
+                        <div class="card-header">Add a Comment</div>
+                        <div class="card-body">
+                            <form action="{{ route('comments.store') }}" method="POST">
+                                @csrf
+                                <input type="hidden" name="problem_id" value="{{ $problem->id }}">
+                                <div class="form-group">
+                                    <textarea name="content" class="form-control" rows="3" required>{{ old('content') }}</textarea>
+                                    @error('content') <span class="text-danger">{{ $message }}</span> @enderror
+                                </div>
+                                <button type="submit" class="btn btn-primary">Submit Comment</button>
+                            </form>
+                        </div>
+                    </div>
+                @else
+                     <p>Please <a href="{{ route('login') }}">login</a> to post a comment.</p>
+                @endauth
+
+
+                {{-- Display comments (recursive for replies could be complex, a simple flat list or limited nesting is easier initially) --}}
+                @if ($problem->comments->isEmpty())
+                    <p>No comments yet. Be the first to comment!</p>
+                @else
+                    <div id="comments-section"> {{-- Anchor for navigating to comments --}}
+                        @include('partials.comments', ['comments' => $problem->comments]) {{-- استخدام جزء منفصل لعرض التعليقات والردود --}}
+                    </div>
+                @endif
+
+            @endsection
+
+            {{-- تحتاج لإنشاء جزء (Partial) لعارض التعليقات والردود: resources/views/partials/comments.blade.php --}}
+            {{-- هذا الجزء سيتم استدعاؤه بشكل متكرر لعرض الردود --}}
+
+            ```
+            *   **Partials: comments.blade.php**
+                *   المسار: `resources/views/partials/comments.blade.php`
+                *   البيانات المتاحة: `$comments` (مجموعة من نماذج Comment)
+
+                ```html
+                {{-- resources/views/partials/comments.blade.php --}}
+
+                @foreach ($comments as $comment)
+                    <div class="media mb-4 border p-3" id="comment-{{ $comment->id }}" style="margin-left: {{ ($comment->parent_comment_id !== null) ? '40px' : '0' }};"> {{-- مسافة بادئة للردود --}}
+                        @if ($comment->author->isIndividual() && $comment->author->userProfile)
+                             <img src="https://via.placeholder.com/50?text={{ substr($comment->author->userProfile->first_name ?? $comment->author->username, 0, 1) }}" class="mr-3 rounded-circle" alt="User Avatar"> {{-- صورة وهمية --}}
+                        @elseif ($comment->author->isOrganization() && $comment->author->organizationProfile)
+                             <img src="https://via.placeholder.com/50?text={{ substr($comment->author->organizationProfile->name ?? $comment->author->username, 0, 1) }}" class="mr-3 rounded-circle" alt="Organization Logo"> {{-- صورة وهمية --}}
+                        @else
+                             <img src="https://via.placeholder.com/50?text=?" class="mr-3 rounded-circle" alt="Avatar"> {{-- صورة وهمية --}}
+                        @endif
+
+                        <div class="media-body">
+                            <h5 class="mt-0">{{ $comment->author->username ?? 'N/A' }} <small class="text-muted">- {{ $comment->created_at->diffForHumans() }}</small></h5>
+
+                            <p>{{ $comment->content }}</p>
+
+                            {{-- Comment Votes (Stack Overflow style) --}}
+                            <div class="d-flex align-items-center">
+                                @auth
+                                     {{-- Upvote Button --}}
+                                    <form action="{{ route('comments.vote', $comment) }}" method="POST" class="d-inline vote-form">
+                                        @csrf
+                                        <input type="hidden" name="vote_value" value="1">
+                                        <button type="submit" class="btn btn-sm btn-outline-success @if(Auth::user()->commentVotes()->where('comment_id', $comment->id)->where('vote_value', 1)->exists()) active @endif">
+                                            <i class="fas fa-arrow-up"></i>
+                                        </button>
+                                    </form>
+
+                                     {{-- Vote Count (will update via JS eventually) --}}
+                                    <span class="mx-2 font-weight-bold comment-vote-count">{{ $comment->total_votes }}</span>
+
+                                     {{-- Downvote Button --}}
+                                    <form action="{{ route('comments.vote', $comment) }}" method="POST" class="d-inline vote-form">
+                                        @csrf
+                                        <input type="hidden" name="vote_value" value="-1">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger @if(Auth::user()->commentVotes()->where('comment_id', $comment->id)->where('vote_value', -1)->exists()) active @endif">
+                                            <i class="fas fa-arrow-down"></i>
+                                        </button>
+                                    </form>
+
+                                    {{-- Reply Button --}}
+                                    <button class="btn btn-sm btn-link ml-2 reply-button" data-comment-id="{{ $comment->id }}">Reply</button>
+
+                                    {{-- Edit/Delete buttons for owner or admin --}}
+                                     @if (Auth::user()->id === $comment->author_account_id || Auth::user()->isAdmin())
+                                         <a href="{{ route('comments.edit', $comment) }}" class="btn btn-sm btn-link ml-2">Edit</a>
+                                         <form action="{{ route('comments.destroy', $comment) }}" method="POST" class="d-inline">
+                                             @csrf
+                                             @method('DELETE')
+                                             <button type="submit" class="btn btn-sm btn-link text-danger" onclick="return confirm('Are you sure you want to delete this comment?');">Delete</button>
+                                         </form>
+                                     @endif
+
+                                     {{-- Adopt as Solution Button (for Organizations only) --}}
+                                     @if (Auth::user()->isOrganization())
+                                         @if (!$comment->adoptedSolution) {{-- Show only if not already adopted --}}
+                                              <form action="{{ route('organization.adoptComment', $comment) }}" method="POST" class="d-inline ml-2">
+                                                 @csrf
+                                                 <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Are you sure your organization wants to adopt this comment as a solution?');">Adopt as Solution</button>
+                                             </form>
+                                         @else {{-- Indicate if already adopted and by whom --}}
+                                            <span class="badge badge-info ml-2">Adopted by {{ $comment->adoptedSolution->adoptingOrganization->name ?? 'Organization' }}</span>
+                                         @endif
+                                     @endif
+
+                                @endauth
+                                 @guest {{-- Display votes even for guests --}}
+                                     <span class="ml-2 font-weight-bold">{{ $comment->total_votes }} votes</span>
+                                @endguest
+
+                            </div>
+
+                            {{-- Reply Form (initially hidden) --}}
+                             @auth
+                                <div class="reply-form mt-3" id="reply-form-{{ $comment->id }}" style="display: none;">
+                                    <h6>Reply to {{ $comment->author->username }}</h6>
+                                    <form action="{{ route('comments.store') }}" method="POST">
+                                        @csrf
+                                        <input type="hidden" name="problem_id" value="{{ $comment->problem_id }}"> {{-- مهم تمرير معرّف المشكلة --}}
+                                        <input type="hidden" name="parent_comment_id" value="{{ $comment->id }}">
+                                        <div class="form-group">
+                                            <textarea name="content" class="form-control" rows="2" required>{{ old('content') }}</textarea>
+                                            @error('content') <span class="text-danger">{{ $message }}</span> @enderror
+                                        </div>
+                                        <button type="submit" class="btn btn-sm btn-primary">Submit Reply</button>
+                                    </form>
+                                </div>
+                            @endauth
+
+
+                            {{-- Display replies recursively --}}
+                            @if ($comment->replies->isNotEmpty())
+                                <div class="mt-4">
+                                    @include('partials.comments', ['comments' => $comment->replies])
+                                </div>
+                            @endif
+
+                        </div>
+                    </div>
+                @endforeach
+
+                {{-- Simple JavaScript to toggle reply forms --}}
+                 {{-- Add this script once in your main layout or a dedicated script file loaded on the page --}}
+                 {{--
+                 <script>
+                     document.addEventListener('DOMContentLoaded', function () {
+                         document.querySelectorAll('.reply-button').forEach(button => {
+                             button.addEventListener('click', function () {
+                                 const commentId = this.dataset.commentId;
+                                 const replyForm = document.getElementById('reply-form-' + commentId);
+                                 if (replyForm.style.display === 'none') {
+                                     replyForm.style.display = 'block';
+                                 } else {
+                                     replyForm.style.display = 'none';
+                                 }
+                             });
+                         });
+
+                         // Optional: Simple AJAX for votes (requires JS library like Axios or Fetch)
+                         // document.querySelectorAll('.vote-form').forEach(form => {
+                         //     form.addEventListener('submit', function(e) {
+                         //         e.preventDefault();
+                         //         const formData = new FormData(this);
+                         //         const voteButton = this.querySelector('button');
+                         //         const voteCountSpan = this.closest('.media-body').querySelector('.comment-vote-count');
+
+                         //         fetch(this.action, {
+                         //             method: 'POST',
+                         //             body: formData,
+                         //             headers: {
+                         //                  'X-Requested-With': 'XMLHttpRequest', // Identify as AJAX request
+                         //                  'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') // Get CSRF token
+                         //             }
+                         //         })
+                         //         .then(response => response.json())
+                         //         .then(data => {
+                         //             if(data.new_total_votes !== undefined) {
+                         //                 voteCountSpan.textContent = data.new_total_votes;
+                         //                 // Optional: Toggle 'active' class on buttons based on current vote status
+                         //                 // This requires more complex state tracking
+                         //             }
+                         //             if(data.message) {
+                         //                  console.log(data.message); // Or display as a flash message
+                         //             }
+                         //         })
+                         //         .catch(error => {
+                         //             console.error('Error:', error);
+                         //             // Handle errors (e.g., show a message to the user)
+                         //         });
+                         //     });
+                         // });
+
+
+                     });
+                 </script>
+                 --}}
+                ```
+
+        *   Create (`ProblemController@create`)
+            *   المسار: `resources/views/problems/create.blade.php`
+            *   البيانات المتاحة: `$categories` (Collection of ProblemCategory models)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Post a New Problem')
+
+            @section('content')
+                <h1>Post a New Problem</h1>
+
+                <form action="{{ route('problems.store') }}" method="POST">
+                    @csrf {{-- CSRF Token --}}
+
+                    <div class="form-group">
+                        <label for="title">Problem Title</label>
+                        <input type="text" class="form-control @error('title') is-invalid @enderror" id="title" name="title" value="{{ old('title') }}" required>
+                        @error('title') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Detailed Description</label>
+                        <textarea class="form-control @error('description') is-invalid @enderror" id="description" name="description" rows="6" required>{{ old('description') }}</textarea>
+                        @error('description') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="category_id">Category</label>
+                        <select class="form-control @error('category_id') is-invalid @enderror" id="category_id" name="category_id" required>
+                            <option value="">Select a Category</option>
+                            @foreach ($categories as $category)
+                                 {{-- يمكنك تحسين هذا لعرض الفئات المتداخلة بشكل مناسب --}}
+                                <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('category_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                     <div class="form-group">
+                        <label for="urgency">Urgency Level</label>
+                        <select class="form-control @error('urgency') is-invalid @enderror" id="urgency" name="urgency" required>
+                            <option value="">Select Urgency</option>
+                            <option value="Low" {{ old('urgency') === 'Low' ? 'selected' : '' }}>Low</option>
+                            <option value="Medium" {{ old('urgency') === 'Medium' ? 'selected' : '' }}>Medium</option>
+                            <option value="High" {{ old('urgency') === 'High' ? 'selected' : '' }}>High</option>
+                        </select>
+                         @error('urgency') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tags">Tags (comma-separated)</label>
+                        <input type="text" class="form-control @error('tags') is-invalid @enderror" id="tags" name="tags" value="{{ old('tags') }}">
+                        @error('tags') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+
+                    <button type="submit" class="btn btn-primary">Submit Problem</button>
+                     <a href="{{ route('problems.index') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            @endsection
+            ```
+
+        *   Edit (`ProblemController@edit`)
+            *   المسار: `resources/views/problems/edit.blade.php`
+            *   البيانات المتاحة: `$problem` (Problem model), `$categories` (Collection of ProblemCategory models)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Edit Problem: ' . $problem->title)
+
+            @section('content')
+                <h1>Edit Problem</h1>
+
+                <form action="{{ route('problems.update', $problem) }}" method="POST">
+                    @csrf {{-- CSRF Token --}}
+                    @method('PUT') {{-- Method spoofing for PUT request --}}
+
+                    <div class="form-group">
+                        <label for="title">Problem Title</label>
+                        <input type="text" class="form-control @error('title') is-invalid @enderror" id="title" name="title" value="{{ old('title', $problem->title) }}" required>
+                        @error('title') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Detailed Description</label>
+                        <textarea class="form-control @error('description') is-invalid @enderror" id="description" name="description" rows="6" required>{{ old('description', $problem->description) }}</textarea>
+                        @error('description') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="category_id">Category</label>
+                        <select class="form-control @error('category_id') is-invalid @enderror" id="category_id" name="category_id" required>
+                            <option value="">Select a Category</option>
+                            @foreach ($categories as $category)
+                                 {{-- يمكنك تحسين هذا لعرض الفئات المتداخلة بشكل مناسب --}}
+                                <option value="{{ $category->id }}" {{ old('category_id', $problem->category_id) == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('category_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                     <div class="form-group">
+                        <label for="urgency">Urgency Level</label>
+                        <select class="form-control @error('urgency') is-invalid @enderror" id="urgency" name="urgency" required>
+                            <option value="">Select Urgency</option>
+                            <option value="Low" {{ old('urgency', $problem->urgency) === 'Low' ? 'selected' : '' }}>Low</option>
+                            <option value="Medium" {{ old('urgency', $problem->urgency) === 'Medium' ? 'selected' : '' }}>Medium</option>
+                            <option value="High" {{ old('urgency', $problem->urgency) === 'High' ? 'selected' : '' }}>High</option>
+                        </select>
+                         @error('urgency') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tags">Tags (comma-separated)</label>
+                        <input type="text" class="form-control @error('tags') is-invalid @enderror" id="tags" name="tags" value="{{ old('tags', $problem->tags) }}">
+                        @error('tags') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                     {{-- حالة المشكلة يمكن تعديلها بواسطة المسؤول فقط، يمكن إضافتها هنا بشرط عرضها للمسؤول فقط --}}
+                     @auth
+                         @if (Auth::user()->isAdmin())
+                            <div class="form-group">
+                                <label for="status">Status</label>
+                                <select class="form-control @error('status') is-invalid @enderror" id="status" name="status" required>
+                                    <option value="Draft" {{ old('status', $problem->status) === 'Draft' ? 'selected' : '' }}>Draft</option>
+                                    <option value="Published" {{ old('status', $problem->status) === 'Published' ? 'selected' : '' }}>Published</option>
+                                    <option value="UnderReview" {{ old('status', $problem->status) === 'UnderReview' ? 'selected' : '' }}>Under Review</option>
+                                    <option value="Hidden" {{ old('status', $problem->status) === 'Hidden' ? 'selected' : '' }}>Hidden</option>
+                                    <option value="Suspended" {{ old('status', $problem->status) === 'Suspended' ? 'selected' : '' }}>Suspended</option>
+                                    <option value="Resolved" {{ old('status', $problem->status) === 'Resolved' ? 'selected' : '' }}>Resolved</option>
+                                    <option value="Archived" {{ old('status', $problem->status) === 'Archived' ? 'selected' : '' }}>Archived</option>
+                                </select>
+                                @error('status') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                            </div>
+                         @endif
+                     @endauth
+
+
+                    <button type="submit" class="btn btn-primary">Update Problem</button>
+                     <a href="{{ route('problems.show', $problem) }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            @endsection
+            ```
+
+    *   **Badges Views (`BadgeController`)**
+        *   المجلد: `resources/views/badges/`
+
+        *   Index (`BadgeController@index`)
+            *   المسار: `resources/views/badges/index.blade.php`
+            *   البيانات المتاحة: `$badges` (Collection of Badge models)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Available Badges')
+
+            @section('content')
+                <h1>Available Badges</h1>
+
+                @if ($badges->isEmpty())
+                    <p>No badges defined yet.</p>
+                @else
+                    <div class="row">
+                        @foreach ($badges as $badge)
+                            <div class="col-md-4 mb-4">
+                                <div class="card">
+                                    @if ($badge->image_url)
+                                        <img src="{{ asset($badge->image_url) }}" class="card-img-top" alt="{{ $badge->name }}" style="max-height: 150px; object-fit: contain;"> {{-- يمكنك تعديل الحجم والتنسيق --}}
+                                    @endif
+                                    <div class="card-body">
+                                        <h5 class="card-title">{{ $badge->name }}</h5>
+                                        <p class="card-text">{{ $badge->description }}</p>
+                                        <p class="card-text"><small class="text-muted">Criteria:</small></p>
+                                        <ul class="card-text">
+                                            @if ($badge->required_points > 0)
+                                                <li>Earn {{ $badge->required_points }} points.</li>
+                                            @endif
+                                            @if ($badge->required_adopted_comments_count > 0)
+                                                <li>Have {{ $badge->required_adopted_comments_count }} comment(s) adopted as solutions.</li>
+                                            @endif
+                                             @if ($badge->required_points == 0 && $badge->required_adopted_comments_count == 0 && $badge->criteria_description)
+                                                 <li>{{ $badge->criteria_description }}</li> {{-- إذا كان هناك وصف يدوي --}}
+                                             @elseif ($badge->required_points == 0 && $badge->required_adopted_comments_count == 0)
+                                                  <li>Criteria not specified.</li> {{-- لعدم وجود معيار محدد --}}
+                                             @endif
+
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            @endsection
+            ```
+
+    *   **Profiles Views (`ProfileController`)**
+        *   المجلد: `resources/views/profiles/`
+
+        *   Show (`ProfileController@show`)
+            *   المسار: `resources/views/profiles/show.blade.php`
+            *   البيانات المتاحة: `$account` (Account model with loaded profile and accountBadges.badge), `$profile` (UserProfile or OrganizationProfile model)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', ($account->isIndividual() ? 'User Profile' : 'Organization Profile') . ': ' . ($profile->name ?? $profile->first_name ?? $account->username))
+
+            @section('content')
+                <h1>Profile: {{ $profile->name ?? $profile->first_name ?? $account->username }}</h1>
+
+                <div class="card mb-3">
+                    <div class="card-header">Account Information</div>
+                    <div class="card-body">
+                        <p><strong>Username:</strong> {{ $account->username }}</p>
+                        <p><strong>Account Type:</strong> {{ ucfirst($account->account_type) }}</p>
+                        <p><strong>Points:</strong> {{ $account->points }}</p>
+                         <p><strong>Joined:</strong> {{ $account->created_at->format('Y-m-d') }}</p>
+
+                        {{-- Link to edit profile if authenticated user owns this profile --}}
+                        @auth
+                             @if (Auth::id() === $account->id)
+                                 <a href="{{ route('profile.edit') }}" class="btn btn-secondary">Edit My Profile</a>
+                             @endif
+                        @endauth
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                     <div class="card-header">{{ $account->isIndividual() ? 'Personal' : 'Organization' }} Details</div>
+                     <div class="card-body">
+                         @if ($account->isIndividual())
+                              {{-- Display User Profile Fields --}}
+                             <p><strong>Full Name:</strong> {{ $profile->first_name ?? 'N/A' }} {{ $profile->last_name ?? 'N/A' }}</p>
+                             <p><strong>Phone:</strong> {{ $profile->phone ?? 'N/A' }}</p>
+                             <p><strong>Bio:</strong> {{ $profile->bio ?? 'N/A' }}</p>
+                         @elseif ($account->isOrganization())
+                             {{-- Display Organization Profile Fields --}}
+                            <p><strong>Organization Name:</strong> {{ $profile->name ?? 'N/A' }}</p>
+                             <p><strong>Website:</strong> <a href="{{ $profile->website_url ?? '#' }}">{{ $profile->website_url ?? 'N/A' }}</a></p>
+                             <p><strong>Contact Email:</strong> {{ $profile->contact_email ?? 'N/A' }}</p>
+                            <p><strong>Info:</strong> {{ $profile->info ?? 'N/A' }}</p>
+                         @endif
+
+                         {{-- Display Address if available --}}
+                         @if ($profile->address)
+                             <p><strong>Address:</strong> {{ $profile->address->street_address ?? '' }}, {{ $profile->address->city->name ?? '' }}, {{ $profile->address->city->country->name ?? '' }} - {{ $profile->address->postal_code ?? '' }}</p>
+                         @endif
+                     </div>
+                </div>
+
+                 {{-- Display Badges --}}
+                 @if ($account->accountBadges->isNotEmpty())
+                      <div class="card mb-3">
+                         <div class="card-header">Earned Badges</div>
+                         <div class="card-body">
+                             <div class="row">
+                                 @foreach ($account->accountBadges as $accountBadge)
+                                     <div class="col-auto mb-3">
+                                         <div class="text-center">
+                                             @if ($accountBadge->badge->image_url)
+                                                 <img src="{{ asset($accountBadge->badge->image_url) }}" alt="{{ $accountBadge->badge->name }}" style="width: 50px; height: 50px;">
+                                             @endif
+                                             <p class="mt-1 mb-0"><small>{{ $accountBadge->badge->name }}</small></p>
+                                              <p><small class="text-muted">Awarded: {{ $accountBadge->awarded_at->format('Y-m-d') }}</small></p>
+                                         </div>
+                                     </div>
+                                 @endforeach
+                             </div>
+                             <p><a href="{{ route('profile.badges') }}" class="btn btn-sm btn-info">View All My Badges</a></p>
+                         </div>
+                     </div>
+                 @endif
+
+                 {{-- Display problems submitted by this account (optional) --}}
+                 {{--
+                 @if ($account->problems->isNotEmpty())
+                      <div class="card mb-3">
+                         <div class="card-header">Submitted Problems</div>
+                         <div class="card-body">
+                            // ... display problems list here
+                         </div>
+                     </div>
+                 @endif
+                 --}}
+
+
+            @endsection
+            ```
+
+        *   Edit (`ProfileController@edit`)
+            *   المسار: `resources/views/profiles/edit.blade.php`
+            *   البيانات المتاحة: `$account` (Authenticated Account model with loaded profile), `$profile` (UserProfile or OrganizationProfile model), `$cities` (Collection of City models)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Edit My Profile')
+
+            @section('content')
+                <h1>Edit My Profile</h1>
+
+                <form action="{{ route('profile.update') }}" method="POST">
+                    @csrf {{-- CSRF Token --}}
+                    @method('PUT') {{-- Method spoofing for PUT request --}}
+
+                    <div class="card mb-3">
+                        <div class="card-header">Account Settings (Limited)</div> {{-- Keep sensitive account fields minimal here --}}
+                        <div class="card-body">
+                             <div class="form-group">
+                                <label for="username">Username</label>
+                                {{-- Username/Email/Password changes might be in a separate page --}}
+                                 <input type="text" class="form-control" id="username" value="{{ $account->username }}" disabled>
+                             </div>
+                        </div>
+                    </div>
+
+
+                     <div class="card mb-3">
+                        <div class="card-header">{{ $account->isIndividual() ? 'Edit Personal' : 'Edit Organization' }} Details</div>
+                        <div class="card-body">
+                            @if ($account->isIndividual())
+                                 {{-- Edit User Profile Fields --}}
+                                <div class="form-group">
+                                    <label for="first_name">First Name</label>
+                                    <input type="text" class="form-control @error('first_name') is-invalid @enderror" id="first_name" name="first_name" value="{{ old('first_name', $profile->first_name) }}">
+                                     @error('first_name') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                                </div>
+                                 <div class="form-group">
+                                    <label for="last_name">Last Name</label>
+                                    <input type="text" class="form-control @error('last_name') is-invalid @enderror" id="last_name" name="last_name" value="{{ old('last_name', $profile->last_name) }}">
+                                     @error('last_name') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                                </div>
+                                <div class="form-group">
+                                    <label for="phone">Phone</label>
+                                    <input type="text" class="form-control @error('phone') is-invalid @enderror" id="phone" name="phone" value="{{ old('phone', $profile->phone) }}">
+                                     @error('phone') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                                </div>
+                                <div class="form-group">
+                                    <label for="bio">Bio</label>
+                                    <textarea class="form-control @error('bio') is-invalid @enderror" id="bio" name="bio" rows="3">{{ old('bio', $profile->bio) }}</textarea>
+                                     @error('bio') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                                </div>
+                            @elseif ($account->isOrganization())
+                                {{-- Edit Organization Profile Fields --}}
+                               <div class="form-group">
+                                   <label for="name">Organization Name</label>
+                                   <input type="text" class="form-control @error('name') is-invalid @enderror" id="name" name="name" value="{{ old('name', $profile->name) }}" required>
+                                   @error('name') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                               </div>
+                                <div class="form-group">
+                                   <label for="website_url">Website URL</label>
+                                   <input type="url" class="form-control @error('website_url') is-invalid @enderror" id="website_url" name="website_url" value="{{ old('website_url', $profile->website_url) }}">
+                                    @error('website_url') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                               </div>
+                                <div class="form-group">
+                                   <label for="contact_email">Contact Email</label>
+                                   <input type="email" class="form-control @error('contact_email') is-invalid @enderror" id="contact_email" name="contact_email" value="{{ old('contact_email', $profile->contact_email) }}">
+                                    @error('contact_email') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                               </div>
+                               <div class="form-group">
+                                   <label for="info">Info</label>
+                                   <textarea class="form-control @error('info') is-invalid @enderror" id="info" name="info" rows="3">{{ old('info', $profile->info) }}</textarea>
+                                    @error('info') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                               </div>
+                            @endif
+
+                             {{-- Address Fields --}}
+                             <div class="card mt-4">
+                                 <div class="card-header">Address Information</div>
+                                 <div class="card-body">
+                                     <div class="form-group">
+                                         <label for="city_id">City</label>
+                                          <select class="form-control @error('city_id') is-invalid @enderror" id="city_id" name="city_id">
+                                             <option value="">Select City</option>
+                                              @foreach ($cities as $city)
+                                                 <option value="{{ $city->id }}" {{ old('city_id', $profile->address->city_id ?? null) == $city->id ? 'selected' : '' }}>
+                                                     {{ $city->name }} ({{ $city->country->name ?? 'N/A' }})
+                                                 </option>
+                                             @endforeach
+                                         </select>
+                                          @error('city_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                                     </div>
+                                      <div class="form-group">
+                                         <label for="street_address">Street Address</label>
+                                         <input type="text" class="form-control @error('street_address') is-invalid @enderror" id="street_address" name="street_address" value="{{ old('street_address', $profile->address->street_address ?? null) }}">
+                                          @error('street_address') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                                     </div>
+                                     <div class="form-group">
+                                         <label for="postal_code">Postal Code</label>
+                                         <input type="text" class="form-control @error('postal_code') is-invalid @enderror" id="postal_code" name="postal_code" value="{{ old('postal_code', $profile->address->postal_code ?? null) }}">
+                                          @error('postal_code') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                                     </div>
+                                 </div>
+                             </div>
+
+
+                         </div>
+                    </div>
+
+
+                    <button type="submit" class="btn btn-primary">Update Profile</button>
+                     <a href="{{ route('profiles.show', Auth::user()) }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            @endsection
+            ```
+
+        *   My Badges (`ProfileController@showMyBadges`)
+            *   المسار: `resources/views/profiles/my_badges.blade.php`
+            *   البيانات المتاحة: `$account` (Authenticated Account model with loaded accountBadges.badge), `$badges` (Collection of AccountBadge models)
+
+            ```html
+             @extends('layouts.app')
+
+            @section('title', 'My Badges')
+
+            @section('content')
+                 <h1>My Badges - {{ $account->username }}</h1>
+
+                 <p>Total Points: {{ $account->points }}</p>
+
+                @if ($badges->isEmpty())
+                    <p>You haven't earned any badges yet. Keep contributing!</p>
+                @else
+                    <div class="row">
+                        @foreach ($badges as $accountBadge)
+                            <div class="col-md-4 mb-4">
+                                <div class="card">
+                                    @if ($accountBadge->badge->image_url)
+                                        <img src="{{ asset($accountBadge->badge->image_url) }}" class="card-img-top" alt="{{ $accountBadge->badge->name }}" style="max-height: 150px; object-fit: contain;">
+                                    @endif
+                                    <div class="card-body">
+                                        <h5 class="card-title">{{ $accountBadge->badge->name }}</h5>
+                                        <p class="card-text">{{ $accountBadge->badge->description }}</p>
+                                        <p class="card-text"><small class="text-muted">Awarded On: {{ $accountBadge->awarded_at->format('Y-m-d H:i') }}</small></p>
+                                         {{-- Criteria can be shown again if needed --}}
+                                         <p><a href="{{ route('badges.index') }}">View All Badges</a></p>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            @endsection
+            ```
+
+    *   **Organization Views (`OrganizationController`)**
+        *   المجلد: `resources/views/organization/` (يمكن إنشاء مجلدات فرعية مثل `adopted_solutions` و `category_interests`)
+
+        *   List Adopted Solutions (`OrganizationController@listAdoptedSolutions`)
+            *   المسار: `resources/views/organization/adopted_solutions/index.blade.php`
+            *   البيانات المتاحة: `$adoptedSolutions` (Pagination Collection of Solution models), `$organizationProfile` (OrganizationProfile model)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', $organizationProfile->name . ' - Adopted Solutions')
+
+            @section('content')
+                <h1>Adopted Solutions by {{ $organizationProfile->name }}</h1>
+
+                @if ($adoptedSolutions->isEmpty())
+                    <p>Your organization has not adopted any comments as solutions yet.</p>
+                @else
+                     <div class="list-group">
+                        @foreach ($adoptedSolutions as $solution)
+                             <a href="{{ route('organization.showAdoptedSolution', $solution) }}" class="list-group-item list-group-item-action">
+                                 <h5 class="mb-1">Solution for: {{ $solution->adoptedComment->problem->title ?? 'N/A Problem' }}</h5>
+                                 <p class="mb-1">{{ \Illuminate\Support\Str::limit($solution->adoptedComment->content, 150) }}</p>
+                                 <small>
+                                     Author: {{ $solution->adoptedComment->author->username ?? 'N/A' }} |
+                                     Status: {{ $solution->status }} |
+                                     Adopted On: {{ $solution->created_at->format('Y-m-d') }}
+                                 </small>
+                             </a>
+                        @endforeach
+                     </div>
+
+                     <div class="mt-3">
+                         {{ $adoptedSolutions->links() }}
+                     </div>
+                @endif
+
+            @endsection
+            ```
+
+        *   Show Adopted Solution (`OrganizationController@showAdoptedSolution`)
+            *   المسار: `resources/views/organization/adopted_solutions/show.blade.php`
+            *   البيانات المتاحة: `$solution` (Solution model with loaded adoptedComment.problem, adoptedComment.author, adoptingOrganization)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Adopted Solution Details')
+
+            @section('content')
+                <h1>Adopted Solution Details</h1>
+
+                <div class="card mb-3">
+                    <div class="card-header">Original Comment & Problem</div>
+                    <div class="card-body">
+                        <p><strong>Problem:</strong> <a href="{{ route('problems.show', $solution->adoptedComment->problem) }}">{{ $solution->adoptedComment->problem->title ?? 'N/A' }}</a></p>
+                        <p><strong>Original Comment Author:</strong> {{ $solution->adoptedComment->author->username ?? 'N/A' }}</p>
+                        <p><strong>Comment Content:</strong></p>
+                        <div class="border p-3 mb-3">{{ $solution->adoptedComment->content ?? 'N/A' }}</div>
+                         <p><a href="{{ route('problems.show', $solution->adoptedComment->problem) }}#comment-{{ $solution->comment_id }}">View original comment in problem</a></p>
+                    </div>
+                </div>
+
+                 <div class="card mb-3">
+                     <div class="card-header">Adoption Details by {{ $solution->adoptingOrganization->name ?? 'Your Organization' }}</div>
+                     <div class="card-body">
+                         <p><strong>Adopting Organization:</strong> {{ $solution->adoptingOrganization->name ?? 'N/A' }}</p>
+                         <p><strong>Adoption Status:</strong> {{ $solution->status }}</p>
+                         <p><strong>Adopted On:</strong> {{ $solution->created_at->format('Y-m-d H:i') }}</p>
+                         <p><strong>Last Updated:</strong> {{ $solution->updated_at->format('Y-m-d H:i') }}</p>
+
+                         <p><strong>Organization Notes:</strong></p>
+                         <div class="border p-3">{{ $solution->organization_notes ?? 'No notes added yet.' }}</div>
+
+                         {{-- Form to update status and notes --}}
+                         <h6 class="mt-4">Update Status and Notes</h6>
+                         <form action="{{ route('organization.updateAdoptedSolutionStatus', $solution) }}" method="POST">
+                             @csrf
+                             @method('PUT')
+                             <div class="form-group">
+                                 <label for="status">Status</label>
+                                 <select class="form-control @error('status') is-invalid @enderror" id="status" name="status" required>
+                                     <option value="UnderConsideration" {{ old('status', $solution->status) === 'UnderConsideration' ? 'selected' : '' }}>Under Consideration</option>
+                                     <option value="Adopted" {{ old('status', $solution->status) === 'Adopted' ? 'selected' : '' }}>Adopted</option>
+                                     <option value="ImplementationInProgress" {{ old('status', $solution->status) === 'ImplementationInProgress' ? 'selected' : '' }}>Implementation In Progress</option>
+                                     <option value="ImplementationCompleted" {{ old('status', $solution->status) === 'ImplementationCompleted' ? 'selected' : '' }}>Implementation Completed</option>
+                                     <option value="RejectedByOrganization" {{ old('status', $solution->status) === 'RejectedByOrganization' ? 'selected' : '' }}>Rejected by Organization</option>
+                                 </select>
+                                  @error('status') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                             </div>
+                              <div class="form-group">
+                                 <label for="organization_notes">Notes</label>
+                                 <textarea class="form-control @error('organization_notes') is-invalid @enderror" id="organization_notes" name="organization_notes" rows="3">{{ old('organization_notes', $solution->organization_notes) }}</textarea>
+                                  @error('organization_notes') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                             </div>
+                              <button type="submit" class="btn btn-primary">Update Solution Details</button>
+                               <a href="{{ route('organization.listAdoptedSolutions') }}" class="btn btn-secondary">Back to List</a>
+                         </form>
+
+                     </div>
+                 </div>
+
+
+            @endsection
+            ```
+
+        *   Edit Category Interests (`OrganizationController@editCategoryInterests`)
+            *   المسار: `resources/views/organization/category_interests/edit.blade.php`
+            *   البيانات المتاحة: `$organizationProfile` (OrganizationProfile model), `$allCategories` (Collection of main ProblemCategory models with children), `$organizationInterests` (Array of IDs of categories the organization is currently interested in)
+
+            ```html
+             @extends('layouts.app')
+
+            @section('title', $organizationProfile->name . ' - Manage Interests')
+
+            @section('content')
+                 <h1>Manage Category Interests for {{ $organizationProfile->name }}</h1>
+
+                 <p>Select the problem categories your organization is interested in:</p>
+
+                 <form action="{{ route('organization.updateCategoryInterests') }}" method="POST">
+                     @csrf
+
+                     <div class="form-group">
+                         @error('categories') <span class="text-danger">Please select at least one valid category.</span> @enderror
+
+                         @foreach ($allCategories as $category)
+                             <div class="form-check">
+                                 <input class="form-check-input" type="checkbox" name="categories[]" value="{{ $category->id }}" id="category_{{ $category->id }}" {{ in_array($category->id, old('categories', $organizationInterests)) ? 'checked' : '' }}>
+                                 <label class="form-check-label" for="category_{{ $category->id }}">
+                                     <strong>{{ $category->name }}</strong>
+                                 </label>
+                             </div>
+                             @if ($category->children->isNotEmpty())
+                                 <div class="ml-4"> {{-- Indent subcategories --}}
+                                     @foreach ($category->children as $childCategory)
+                                         <div class="form-check">
+                                              <input class="form-check-input" type="checkbox" name="categories[]" value="{{ $childCategory->id }}" id="category_{{ $childCategory->id }}" {{ in_array($childCategory->id, old('categories', $organizationInterests)) ? 'checked' : '' }}>
+                                              <label class="form-check-label" for="category_{{ $childCategory->id }}">
+                                                 {{ $childCategory->name }}
+                                             </label>
+                                         </div>
+                                     @endforeach
+                                 </div>
+                             @endif
+                         @endforeach
+                     </div>
+
+
+                     <button type="submit" class="btn btn-primary">Update Interests</button>
+                     {{-- Redirect to a relevant page, e.g., list of adopted solutions --}}
+                     <a href="{{ route('organization.listAdoptedSolutions') }}" class="btn btn-secondary">Cancel</a>
+
+                 </form>
+            @endsection
+            ```
+
+    *   **General Solutions Views (`SolutionController`)**
+        *   المجلد: `resources/views/solutions/`
+
+        *   Index (`SolutionController@index`) - *Assuming this is a public list of successfully implemented solutions*
+            *   المسار: `resources/views/solutions/index.blade.php`
+            *   البيانات المتاحة: `$adoptedSolutions` (Pagination Collection of Solution models)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Approved Solutions')
+
+            @section('content')
+                 <h1>Approved Solutions</h1>
+
+                 <p>Browse comments that organizations have adopted and are working on.</p>
+
+                 @if ($adoptedSolutions->isEmpty())
+                     <p>No adopted solutions found yet.</p>
+                 @else
+                      <div class="list-group">
+                         @foreach ($adoptedSolutions as $solution)
+                              {{-- Link to the general solution show page --}}
+                              <a href="{{ route('solutions.show', $solution) }}" class="list-group-item list-group-item-action">
+                                  <h5 class="mb-1">Solution for: {{ $solution->adoptedComment->problem->title ?? 'N/A Problem' }}</h5>
+                                  <p class="mb-1">{{ \Illuminate\Support\Str::limit($solution->adoptedComment->content, 150) }}</p>
+                                  <small>
+                                      Adopted by: {{ $solution->adoptingOrganization->name ?? 'N/A Organization' }} |
+                                      Status: {{ $solution->status }} |
+                                      Adopted On: {{ $solution->created_at->format('Y-m-d') }}
+                                  </small>
+                              </a>
+                         @endforeach
+                      </div>
+
+                      <div class="mt-3">
+                          {{ $adoptedSolutions->links() }}
+                      </div>
+                 @endif
+            @endsection
+            ```
+
+        *   Show (`SolutionController@show`) - *General view of a specific adopted solution*
+            *   المسار: `resources/views/solutions/show.blade.php`
+            *   البيانات المتاحة: `$solution` (Solution model with loaded relationships)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Solution for: ' . ($solution->adoptedComment->problem->title ?? ''))
+
+            @section('content')
+                 <h1>Solution Details</h1>
+
+                 <div class="card mb-3">
+                     <div class="card-header">Problem & Original Comment</div>
+                     <div class="card-body">
+                         <p><strong>Problem:</strong> <a href="{{ route('problems.show', $solution->adoptedComment->problem) }}">{{ $solution->adoptedComment->problem->title ?? 'N/A' }}</a></p>
+                         <p><strong>Original Comment Author:</strong> {{ $solution->adoptedComment->author->username ?? 'N/A' }}</p>
+                         <p><strong>Comment Content:</strong></p>
+                         <div class="border p-3 mb-3">{{ $solution->adoptedComment->content ?? 'N/A' }}</div>
+                          <p><a href="{{ route('problems.show', $solution->adoptedComment->problem) }}#comment-{{ $solution->comment_id }}">View original comment in problem</a></p>
+                     </div>
+                 </div>
+
+                  <div class="card mb-3">
+                      <div class="card-header">Adoption Details</div>
+                      <div class="card-body">
+                          <p><strong>Adopting Organization:</strong> {{ $solution->adoptingOrganization->name ?? 'N/A' }}</p>
+                          <p><strong>Adoption Status:</strong> {{ $solution->status }}</p>
+                          <p><strong>Adopted On:</strong> {{ $solution->created_at->format('Y-m-d H:i') }}</p>
+                          <p><strong>Last Updated:</strong> {{ $solution->updated_at->format('Y-m-d H:i') }}</p>
+
+                          {{-- Organization notes are internal, usually not shown in public view --}}
+                           {{-- <p><strong>Organization Notes:</strong> {{ $solution->organization_notes ?? 'N/A' }}</p> --}}
+
+                      </div>
+                  </div>
+
+                   {{-- Link back to problem or list of solutions --}}
+                   <a href="{{ route('problems.show', $solution->adoptedComment->problem) }}" class="btn btn-secondary">Back to Problem</a>
+                    <a href="{{ route('solutions.index') }}" class="btn btn-secondary">Back to Solutions List</a>
+
+
+            @endsection
+            ```
+
+    *   **Admin Views (`AdminController`)**
+        *   المجلد: `resources/views/admin/` (مع مجلدات فرعية مثل `accounts`, `problems`, `categories`, `badges`, `solutions`)
+
+        *   Dashboard (`AdminController@dashboard`)
+            *   المسار: `resources/views/admin/dashboard.blade.php`
+            *   البيانات المتاحة: `$accountsCount`, `$problemsCount`, `$commentsCount`, `$adoptedSolutionsCount`
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Admin Dashboard')
+
+            @section('content')
+                <h1>Admin Dashboard</h1>
+
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card text-white bg-primary mb-3">
+                            <div class="card-header">Total Accounts</div>
+                            <div class="card-body">
+                                <h5 class="card-title">{{ $accountsCount }}</h5>
+                                <p class="card-text"><a href="{{ route('admin.accounts.index') }}" class="text-white">Manage Accounts</a></p>
+                            </div>
+                        </div>
+                    </div>
+                     <div class="col-md-3">
+                         <div class="card text-white bg-info mb-3">
+                            <div class="card-header">Total Problems</div>
+                            <div class="card-body">
+                                <h5 class="card-title">{{ $problemsCount }}</h5>
+                                <p class="card-text"><a href="{{ route('admin.problems.index') }}" class="text-white">Manage Problems</a></p>
+                            </div>
+                        </div>
+                    </div>
+                     <div class="col-md-3">
+                         <div class="card text-white bg-success mb-3">
+                            <div class="card-header">Total Comments</div>
+                            <div class="card-body">
+                                <h5 class="card-title">{{ $commentsCount }}</h5>
+                                {{-- Add link to manage comments if needed --}}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                         <div class="card text-white bg-warning mb-3">
+                            <div class="card-header">Adopted Solutions</div>
+                            <div class="card-body">
+                                <h5 class="card-title">{{ $adoptedSolutionsCount }}</h5>
+                                <p class="card-text"><a href="{{ route('admin.solutions.index') }}" class="text-white">Manage Solutions</a></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                 {{-- Links to other admin sections --}}
+                 <div class="mt-4">
+                     <h3>Management Sections</h3>
+                     <ul>
+                         <li><a href="{{ route('admin.categories.index') }}">Manage Problem Categories</a></li>
+                         <li><a href="{{ route('admin.badges.index') }}">Manage Badges</a></li>
+                         {{-- Add more links as needed --}}
+                     </ul>
+                 </div>
+
+
+            @endsection
+            ```
+
+        *   Accounts Index (`AdminController@indexAccounts`) - *Based on `Route::resource('accounts')->except(['show', 'create', 'store'])`*
+            *   المسار: `resources/views/admin/accounts/index.blade.php`
+            *   البيانات المتاحة: `$accounts` (Pagination Collection of Account models)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Manage Accounts')
+
+            @section('content')
+                <h1>Manage Accounts</h1>
+
+                 {{-- Link to create new account manually by admin if needed --}}
+                 {{-- <p><a href="{{ route('admin.accounts.create') }}" class="btn btn-primary">Add New Account</a></p> --}}
+
+                @if ($accounts->isEmpty())
+                    <p>No accounts found.</p>
+                @else
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Type</th>
+                                <th>Points</th>
+                                <th>Active</th>
+                                <th>Registered At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($accounts as $account)
+                                <tr>
+                                    <td>{{ $account->id }}</td>
+                                    <td>{{ $account->username }}</td>
+                                    <td>{{ $account->email }}</td>
+                                    <td>{{ ucfirst($account->account_type) }}</td>
+                                    <td>{{ $account->points }}</td>
+                                    <td>{{ $account->is_active ? 'Yes' : 'No' }}</td>
+                                    <td>{{ $account->created_at->format('Y-m-d') }}</td>
+                                    <td>
+                                        <a href="{{ route('admin.accounts.edit', $account) }}" class="btn btn-sm btn-secondary">Edit</a>
+                                        @if (Auth::id() !== $account->id) {{-- لا تسمح للمسؤول بحذف حسابه من هنا --}}
+                                            <form action="{{ route('admin.accounts.destroy', $account) }}" method="POST" class="d-inline">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this account and all its data?');">Delete</button>
+                                            </form>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+
+                    <div class="mt-3">
+                        {{ $accounts->links() }}
+                    </div>
+                @endif
+            @endsection
+            ```
+
+        *   Accounts Edit (`AdminController@editAccount`) - *Based on `Route::resource('accounts')->except(['show', 'create', 'store'])`*
+            *   المسار: `resources/views/admin/accounts/edit.blade.php`
+            *   البيانات المتاحة: `$account` (Account model with loaded profile)
+
+            ```html
+             @extends('layouts.app')
+
+            @section('title', 'Edit Account: ' . $account->username)
+
+            @section('content')
+                 <h1>Edit Account</h1>
+
+                 <form action="{{ route('admin.accounts.update', $account) }}" method="POST">
+                    @csrf
+                    @method('PUT')
+
+                     <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" class="form-control @error('username') is-invalid @enderror" id="username" name="username" value="{{ old('username', $account->username) }}" required>
+                         @error('username') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                     <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" class="form-control @error('email') is-invalid @enderror" id="email" name="email" value="{{ old('email', $account->email) }}" required>
+                         @error('email') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                     {{-- Password change should be a separate form/feature for security --}}
+                     {{-- <div class="form-group">
+                        <label for="password">New Password (leave blank to keep current)</label>
+                        <input type="password" class="form-control @error('password') is-invalid @enderror" id="password" name="password">
+                         @error('password') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div> --}}
+
+                     <div class="form-group">
+                        <label for="account_type">Account Type</label>
+                         <select class="form-control @error('account_type') is-invalid @enderror" id="account_type" name="account_type" required>
+                             <option value="individual" {{ old('account_type', $account->account_type) === 'individual' ? 'selected' : '' }}>Individual</option>
+                             <option value="organization" {{ old('account_type', $account->account_type) === 'organization' ? 'selected' : '' }}>Organization</option>
+                             <option value="admin" {{ old('account_type', $account->account_type) === 'admin' ? 'selected' : '' }}>Admin</option>
+                         </select>
+                          @error('account_type') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="form-group">
+                        <label for="points">Points</label>
+                        <input type="number" class="form-control @error('points') is-invalid @enderror" id="points" name="points" value="{{ old('points', $account->points) }}" required min="0">
+                         @error('points') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                     <div class="form-group form-check">
+                        <input type="checkbox" class="form-check-input @error('is_active') is-invalid @enderror" id="is_active" name="is_active" value="1" {{ old('is_active', $account->is_active) ? 'checked' : '' }}>
+                        <label class="form-check-label" for="is_active">Is Active</label>
+                         @error('is_active') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                    </div>
+
+                    {{-- Note: Editing user/org profile details (name, phone, bio, address) would require
+                         fetching/saving the associated profile model based on account_type.
+                         For simplicity here, we only include Account table fields.
+                    --}}
+
+
+                    <button type="submit" class="btn btn-primary">Update Account</button>
+                     <a href="{{ route('admin.accounts.index') }}" class="btn btn-secondary">Cancel</a>
+                 </form>
+            @endsection
+            ```
+
+        *   Problems Index (`AdminController@indexProblems`) - *Based on `Route::resource('problems')->except(['create', 'store', 'show'])`*
+            *   المسار: `resources/views/admin/problems/index.blade.php`
+            *   البيانات المتاحة: `$problems` (Pagination Collection of Problem models)
+
+            ```html
+             @extends('layouts.app')
+
+            @section('title', 'Manage Problems')
+
+            @section('content')
+                 <h1>Manage Problems</h1>
+
+                 {{-- Admin might create problems from here too --}}
+                 {{-- <p><a href="{{ route('admin.problems.create') }}" class="btn btn-primary">Create New Problem</a></p> --}}
+
+                @if ($problems->isEmpty())
+                    <p>No problems found.</p>
+                @else
+                     <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Title</th>
+                                <th>Submitter</th>
+                                <th>Category</th>
+                                <th>Urgency</th>
+                                <th>Status</th>
+                                <th>Posted At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($problems as $problem)
+                                <tr>
+                                    <td>{{ $problem->id }}</td>
+                                    <td><a href="{{ route('problems.show', $problem) }}">{{ \Illuminate\Support\Str::limit($problem->title, 50) }}</a></td> {{-- رابط لصفحة عرض المشكلة العامة --}}
+                                    <td>{{ $problem->submittedBy->username ?? 'N/A' }}</td>
+                                    <td>{{ $problem->category->name ?? 'N/A' }}</td>
+                                    <td>{{ $problem->urgency }}</td>
+                                    <td>{{ $problem->status }}</td>
+                                    <td>{{ $problem->created_at->format('Y-m-d') }}</td>
+                                    <td>
+                                         {{-- Link to admin edit page --}}
+                                        <a href="{{ route('admin.problems.edit', $problem) }}" class="btn btn-sm btn-secondary">Edit</a>
+                                        <form action="{{ route('admin.problems.destroy', $problem) }}" method="POST" class="d-inline">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this problem and all associated data (comments, solutions)?');">Delete</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+
+                     <div class="mt-3">
+                         {{ $problems->links() }}
+                     </div>
+                @endif
+            @endsection
+            ```
+
+        *   Problems Edit (`AdminController@editProblem`) - *Based on `Route::resource('problems')->except(['create', 'store', 'show'])`*
+            *   المسار: `resources/views/admin/problems/edit.blade.php`
+            *   البيانات المتاحة: `$problem` (Problem model), `$categories` (Collection of ProblemCategory models)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Admin Edit Problem: ' . $problem->title)
+
+            @section('content')
+                 <h1>Admin Edit Problem</h1>
+
+                 <form action="{{ route('admin.problems.update', $problem) }}" method="POST">
+                     @csrf
+                     @method('PUT')
+
+                     <div class="form-group">
+                         <label for="title">Problem Title</label>
+                         <input type="text" class="form-control @error('title') is-invalid @enderror" id="title" name="title" value="{{ old('title', $problem->title) }}" required>
+                          @error('title') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                     <div class="form-group">
+                         <label for="description">Detailed Description</label>
+                         <textarea class="form-control @error('description') is-invalid @enderror" id="description" name="description" rows="6" required>{{ old('description', $problem->description) }}</textarea>
+                          @error('description') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                     <div class="form-group">
+                         <label for="category_id">Category</label>
+                         <select class="form-control @error('category_id') is-invalid @enderror" id="category_id" name="category_id" required>
+                             <option value="">Select a Category</option>
+                             @foreach ($categories as $category)
+                                  <option value="{{ $category->id }}" {{ old('category_id', $problem->category_id) == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
+                             @endforeach
+                         </select>
+                         @error('category_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                      <div class="form-group">
+                         <label for="urgency">Urgency Level</label>
+                         <select class="form-control @error('urgency') is-invalid @enderror" id="urgency" name="urgency" required>
+                             <option value="Low" {{ old('urgency', $problem->urgency) === 'Low' ? 'selected' : '' }}>Low</option>
+                             <option value="Medium" {{ old('urgency', $problem->urgency) === 'Medium' ? 'selected' : '' }}>Medium</option>
+                             <option value="High" {{ old('urgency', $problem->urgency) === 'High' ? 'selected' : '' }}>High</option>
+                         </select>
+                          @error('urgency') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                     <div class="form-group">
+                         <label for="status">Status</label>
+                         <select class="form-control @error('status') is-invalid @enderror" id="status" name="status" required>
+                             <option value="Draft" {{ old('status', $problem->status) === 'Draft' ? 'selected' : '' }}>Draft</option>
+                             <option value="Published" {{ old('status', $problem->status) === 'Published' ? 'selected' : '' }}>Published</option>
+                             <option value="UnderReview" {{ old('status', $problem->status) === 'UnderReview' ? 'selected' : '' }}>Under Review</option>
+                             <option value="Hidden" {{ old('status', $problem->status) === 'Hidden' ? 'selected' : '' }}>Hidden</option>
+                             <option value="Suspended" {{ old('status', $problem->status) === 'Suspended' ? 'selected' : '' }}>Suspended</option>
+                             <option value="Resolved" {{ old('status', $problem->status) === 'Resolved' ? 'selected' : '' }}>Resolved</option>
+                             <option value="Archived" {{ old('status', $problem->status) === 'Archived' ? 'selected' : '' }}>Archived</option>
+                         </select>
+                          @error('status') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                     <div class="form-group">
+                         <label for="tags">Tags (comma-separated)</label>
+                         <input type="text" class="form-control @error('tags') is-invalid @enderror" id="tags" name="tags" value="{{ old('tags', $problem->tags) }}">
+                          @error('tags') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                     <button type="submit" class="btn btn-primary">Update Problem</button>
+                      <a href="{{ route('admin.problems.index') }}" class="btn btn-secondary">Cancel</a>
+                 </form>
+            @endsection
+            ```
+
+        *   Categories Index (`AdminController@indexCategories`) - *Based on `Route::resource('categories')->except(['show'])`*
+            *   المسار: `resources/views/admin/categories/index.blade.php`
+            *   البيانات المتاحة: `$categories` (Collection of ProblemCategory models)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Manage Categories')
+
+            @section('content')
+                 <h1>Manage Problem Categories</h1>
+
+                 <p><a href="{{ route('admin.categories.create') }}" class="btn btn-primary">Add New Category</a></p>
+
+                 @if ($categories->isEmpty())
+                     <p>No categories found.</p>
+                 @else
+                      <table class="table table-bordered">
+                         <thead>
+                             <tr>
+                                 <th>ID</th>
+                                 <th>Name</th>
+                                 <th>Parent</th>
+                                 <th>Description</th>
+                                 <th>Actions</th>
+                             </tr>
+                         </thead>
+                         <tbody>
+                             @foreach ($categories as $category)
+                                 <tr>
+                                     <td>{{ $category->id }}</td>
+                                     <td>{{ $category->name }}</td>
+                                     <td>{{ $category->parent->name ?? '-' }}</td>
+                                     <td>{{ \Illuminate\Support\Str::limit($category->description, 100) }}</td>
+                                     <td>
+                                          <a href="{{ route('admin.categories.edit', $category) }}" class="btn btn-sm btn-secondary">Edit</a>
+                                         <form action="{{ route('admin.categories.destroy', $category) }}" method="POST" class="d-inline">
+                                             @csrf
+                                             @method('DELETE')
+                                             <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this category? (Problems in this category may be affected)');">Delete</button>
+                                         </form>
+                                     </td>
+                                 </tr>
+                             @endforeach
+                         </tbody>
+                     </table>
+                     {{-- No pagination added in controller, but can be added --}}
+                 @endif
+            @endsection
+            ```
+            *ملاحظة:* نحتاج لإضافة دوال `indexCategories`, `createCategory`, `storeCategory`, `editCategory`, `updateCategory`, `destroyCategory` في `AdminController` لتعمل هذه الواجهة والمسارات بشكل صحيح. حالياً، متحكم `AdminController` يخلط بين إدارة الموارد المختلفة.
+
+        *   Categories Create (`AdminController@createCategory`) - *Based on `Route::resource('categories')->except(['show'])`*
+            *   المسار: `resources/views/admin/categories/create.blade.php`
+            *   البيانات المتاحة: `$categories` (Collection of ProblemCategory models لعرض الفئات الأم المحتملة)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Admin Create Category')
+
+            @section('content')
+                 <h1>Admin Create Problem Category</h1>
+
+                 <form action="{{ route('admin.categories.store') }}" method="POST">
+                     @csrf
+
+                     <div class="form-group">
+                         <label for="name">Category Name</label>
+                         <input type="text" class="form-control @error('name') is-invalid @enderror" id="name" name="name" value="{{ old('name') }}" required>
+                          @error('name') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                     <div class="form-group">
+                         <label for="description">Description</label>
+                         <textarea class="form-control @error('description') is-invalid @enderror" id="description" name="description" rows="3">{{ old('description') }}</textarea>
+                          @error('description') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                     <div class="form-group">
+                         <label for="parent_category_id">Parent Category (Optional)</label>
+                         <select class="form-control @error('parent_category_id') is-invalid @enderror" id="parent_category_id" name="parent_category_id">
+                             <option value="">-- No Parent --</option>
+                             @foreach ($categories as $category) {{-- $categories يجب أن تأتي من المتحكم --}}
+                                  <option value="{{ $category->id }}" {{ old('parent_category_id') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
+                             @endforeach
+                         </select>
+                          @error('parent_category_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+
+                     <button type="submit" class="btn btn-primary">Create Category</button>
+                      <a href="{{ route('admin.categories.index') }}" class="btn btn-secondary">Cancel</a>
+                 </form>
+            @endsection
+            ```
+            *ملاحظة:* يجب تحديث دالة `createCategory` في `AdminController` لتمرير `$categories` ( ProblemCategory::all() ).
+
+        *   Categories Edit (`AdminController@editCategory`) - *Based on `Route::resource('categories')->except(['show'])`*
+            *   المسار: `resources/views/admin/categories/edit.blade.php`
+            *   البيانات المتاحة: `$category` (ProblemCategory model), `$categories` (Collection of ProblemCategory models excluding the current one, for parent selection)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Admin Edit Category: ' . $category->name)
+
+            @section('content')
+                 <h1>Admin Edit Problem Category</h1>
+
+                 <form action="{{ route('admin.categories.update', $category) }}" method="POST">
+                     @csrf
+                     @method('PUT')
+
+                     <div class="form-group">
+                         <label for="name">Category Name</label>
+                         <input type="text" class="form-control @error('name') is-invalid @enderror" id="name" name="name" value="{{ old('name', $category->name) }}" required>
+                          @error('name') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                     <div class="form-group">
+                         <label for="description">Description</label>
+                         <textarea class="form-control @error('description') is-invalid @enderror" id="description" name="description" rows="3">{{ old('description', $category->description) }}</textarea>
+                          @error('description') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                     <div class="form-group">
+                         <label for="parent_category_id">Parent Category (Optional)</label>
+                         <select class="form-control @error('parent_category_id') is-invalid @enderror" id="parent_category_id" name="parent_category_id">
+                             <option value="">-- No Parent --</option>
+                             @foreach ($categories as $parentCategory) {{-- $categories يجب أن تأتي من المتحكم --}}
+                                  {{-- لا تسمح للفئة بأن تكون ابناً لنفسها أو لأبنائها --}}
+                                  @if ($parentCategory->id !== $category->id && ! $category->children->contains('id', $parentCategory->id) ) {{-- Child check might be complex --}}
+                                     <option value="{{ $parentCategory->id }}" {{ old('parent_category_id', $category->parent_category_id) == $parentCategory->id ? 'selected' : '' }}>{{ $parentCategory->name }}</option>
+                                  @endif
+                             @endforeach
+                         </select>
+                          @error('parent_category_id') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+
+                     <button type="submit" class="btn btn-primary">Update Category</button>
+                      <a href="{{ route('admin.categories.index') }}" class="btn btn-secondary">Cancel</a>
+                 </form>
+            @endsection
+            ```
+             *ملاحظة:* يجب تحديث دالة `editCategory` في `AdminController` لتمرير `$categories` ( ProblemCategory::all() أو مجموعة الفئات الصالحة كآباء).
+
+        *   Badges Index (`AdminController@indexBadges`) - *Based on `Route::resource('badges')->except(['show'])`*
+            *   المسار: `resources/views/admin/badges/index.blade.php`
+            *   البيانات المتاحة: `$badges` (Collection of Badge models)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Admin Manage Badges')
+
+            @section('content')
+                 <h1>Admin Manage Badges</h1>
+
+                 <p><a href="{{ route('admin.badges.create') }}" class="btn btn-primary">Create New Badge</a></p>
+
+                 @if ($badges->isEmpty())
+                     <p>No badges found.</p>
+                 @else
+                      <table class="table table-bordered">
+                         <thead>
+                             <tr>
+                                 <th>ID</th>
+                                 <th>Name</th>
+                                 <th>Image</th>
+                                 <th>Req. Points</th>
+                                 <th>Req. Adopted Comments</th>
+                                 <th>Description</th>
+                                 <th>Actions</th>
+                             </tr>
+                         </thead>
+                         <tbody>
+                             @foreach ($badges as $badge)
+                                 <tr>
+                                     <td>{{ $badge->id }}</td>
+                                     <td>{{ $badge->name }}</td>
+                                     <td>
+                                         @if ($badge->image_url)
+                                             <img src="{{ asset($badge->image_url) }}" alt="{{ $badge->name }}" style="width: 30px; height: 30px;">
+                                         @else
+                                             No Image
+                                         @endif
+                                     </td>
+                                     <td>{{ $badge->required_points }}</td>
+                                     <td>{{ $badge->required_adopted_comments_count }}</td>
+                                     <td>{{ \Illuminate\Support\Str::limit($badge->description, 100) }}</td>
+                                     <td>
+                                          <a href="{{ route('admin.badges.edit', $badge) }}" class="btn btn-sm btn-secondary">Edit</a>
+                                         <form action="{{ route('admin.badges.destroy', $badge) }}" method="POST" class="d-inline">
+                                             @csrf
+                                             @method('DELETE')
+                                             <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this badge?');">Delete</button>
+                                         </form>
+                                     </td>
+                                 </tr>
+                             @endforeach
+                         </tbody>
+                     </table>
+                     {{-- No pagination added in controller --}}
+                 @endif
+            @endsection
+            ```
+            *ملاحظة:* نحتاج لإضافة دوال `indexBadges`, `createBadge`, `storeBadge`, `editBadge`, `updateBadge`, `destroyBadge` في `AdminController`.
+
+        *   Badges Create (`AdminController@createBadge`) - *Based on `Route::resource('badges')->except(['show'])`*
+            *   المسار: `resources/views/admin/badges/create.blade.php`
+            *   البيانات المتاحة: (لا يوجد بيانات)
+
+            ```html
+             @extends('layouts.app')
+
+            @section('title', 'Admin Create Badge')
+
+            @section('content')
+                 <h1>Admin Create Badge</h1>
+
+                 <form action="{{ route('admin.badges.store') }}" method="POST">
+                     @csrf
+
+                     <div class="form-group">
+                         <label for="name">Badge Name</label>
+                         <input type="text" class="form-control @error('name') is-invalid @enderror" id="name" name="name" value="{{ old('name') }}" required>
+                          @error('name') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                      <div class="form-group">
+                         <label for="description">Description</label>
+                         <textarea class="form-control @error('description') is-invalid @enderror" id="description" name="description" rows="3">{{ old('description') }}</textarea>
+                          @error('description') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                      <div class="form-group">
+                         <label for="image_url">Image URL</label>
+                         <input type="text" class="form-control @error('image_url') is-invalid @enderror" id="image_url" name="image_url" value="{{ old('image_url') }}">
+                          @error('image_url') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                      <div class="form-group">
+                         <label for="required_points">Required Points</label>
+                         <input type="number" class="form-control @error('required_points') is-invalid @enderror" id="required_points" name="required_points" value="{{ old('required_points', 0) }}" required min="0">
+                          @error('required_points') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                      <div class="form-group">
+                         <label for="required_adopted_comments_count">Required Adopted Comments Count</label>
+                         <input type="number" class="form-control @error('required_adopted_comments_count') is-invalid @enderror" id="required_adopted_comments_count" name="required_adopted_comments_count" value="{{ old('required_adopted_comments_count', 0) }}" required min="0">
+                          @error('required_adopted_comments_count') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                     <button type="submit" class="btn btn-primary">Create Badge</button>
+                      <a href="{{ route('admin.badges.index') }}" class="btn btn-secondary">Cancel</a>
+                 </form>
+            @endsection
+            ```
+             *ملاحظة:* نحتاج لإضافة دالتي `createBadge` و `storeBadge` في `AdminController`.
+
+        *   Badges Edit (`AdminController@editBadge`) - *Based on `Route::resource('badges')->except(['show'])`*
+            *   المسار: `resources/views/admin/badges/edit.blade.php`
+            *   البيانات المتاحة: `$badge` (Badge model)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Admin Edit Badge: ' . $badge->name)
+
+            @section('content')
+                 <h1>Admin Edit Badge</h1>
+
+                 <form action="{{ route('admin.badges.update', $badge) }}" method="POST">
+                     @csrf
+                     @method('PUT')
+
+                     <div class="form-group">
+                         <label for="name">Badge Name</label>
+                         <input type="text" class="form-control @error('name') is-invalid @enderror" id="name" name="name" value="{{ old('name', $badge->name) }}" required>
+                          @error('name') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                      <div class="form-group">
+                         <label for="description">Description</label>
+                         <textarea class="form-control @error('description') is-invalid @enderror" id="description" name="description" rows="3">{{ old('description', $badge->description) }}</textarea>
+                          @error('description') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                      <div class="form-group">
+                         <label for="image_url">Image URL</label>
+                         <input type="text" class="form-control @error('image_url') is-invalid @enderror" id="image_url" name="image_url" value="{{ old('image_url', $badge->image_url) }}">
+                          @error('image_url') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                      <div class="form-group">
+                         <label for="required_points">Required Points</label>
+                         <input type="number" class="form-control @error('required_points') is-invalid @enderror" id="required_points" name="required_points" value="{{ old('required_points', $badge->required_points) }}" required min="0">
+                          @error('required_points') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                      <div class="form-group">
+                         <label for="required_adopted_comments_count">Required Adopted Comments Count</label>
+                         <input type="number" class="form-control @error('required_adopted_comments_count') is-invalid @enderror" id="required_adopted_comments_count" name="required_adopted_comments_count" value="{{ old('required_adopted_comments_count', $badge->required_adopted_comments_count) }}" required min="0">
+                          @error('required_adopted_comments_count') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                     </div>
+
+                     <button type="submit" class="btn btn-primary">Update Badge</button>
+                      <a href="{{ route('admin.badges.index') }}" class="btn btn-secondary">Cancel</a>
+                 </form>
+            @endsection
+            ```
+             *ملاحظة:* نحتاج لإضافة دالتي `editBadge` و `updateBadge` في `AdminController`.
+
+        *   Adopted Solutions Index (`AdminController@indexAdoptedSolutions`) - *Based on `Route::resource('solutions')->except(['create', 'store', 'edit'])`*
+            *   المسار: `resources/views/admin/solutions/index.blade.php`
+            *   البيانات المتاحة: `$adoptedSolutions` (Pagination Collection of Solution models)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Admin Manage Adopted Solutions')
+
+            @section('content')
+                 <h1>Admin Manage Adopted Solutions</h1>
+
+                 @if ($adoptedSolutions->isEmpty())
+                     <p>No adopted solutions found.</p>
+                 @else
+                      <table class="table table-bordered">
+                         <thead>
+                             <tr>
+                                 <th>ID</th>
+                                 <th>Comment ID</th>
+                                 <th>Problem Title</th>
+                                 <th>Original Author</th>
+                                 <th>Adopting Org</th>
+                                 <th>Status</th>
+                                 <th>Adopted At</th>
+                                 <th>Actions</th>
+                             </tr>
+                         </thead>
+                         <tbody>
+                             @foreach ($adoptedSolutions as $solution)
+                                 <tr>
+                                     <td>{{ $solution->id }}</td>
+                                     <td>{{ $solution->comment_id }}</td>
+                                     <td><a href="{{ route('problems.show', $solution->adoptedComment->problem) }}">{{ \Illuminate\Support\Str::limit($solution->adoptedComment->problem->title ?? 'N/A', 50) }}</a></td>
+                                     <td>{{ $solution->adoptedComment->author->username ?? 'N/A' }}</td>
+                                     <td>{{ $solution->adoptingOrganization->name ?? 'N/A' }}</td>
+                                     <td>{{ $solution->status }}</td>
+                                     <td>{{ $solution->created_at->format('Y-m-d') }}</td>
+                                     <td>
+                                         {{-- Link to admin show page --}}
+                                          <a href="{{ route('admin.solutions.show', $solution) }}" class="btn btn-sm btn-info">View</a>
+                                          {{-- No edit link based on routes, status is updated via show page form --}}
+                                         <form action="{{ route('admin.solutions.destroy', $solution) }}" method="POST" class="d-inline">
+                                             @csrf
+                                             @method('DELETE')
+                                             <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this adopted solution?');">Delete</button>
+                                         </form>
+                                     </td>
+                                 </tr>
+                             @endforeach
+                         </tbody>
+                     </table>
+
+                     <div class="mt-3">
+                         {{ $adoptedSolutions->links() }}
+                     </div>
+                 @endif
+            @endsection
+            ```
+             *ملاحظة:* نحتاج لإضافة دالتي `indexAdoptedSolutions` و `destroyAdoptedSolution` في `AdminController`.
+
+        *   Adopted Solutions Show (`AdminController@showAdoptedSolution`) - *Based on `Route::resource('solutions')->except(['create', 'store', 'edit'])`*
+            *   المسار: `resources/views/admin/solutions/show.blade.php`
+            *   البيانات المتاحة: `$solution` (Solution model with loaded relationships)
+
+            ```html
+            @extends('layouts.app')
+
+            @section('title', 'Admin Adopted Solution: ' . ($solution->adoptedComment->problem->title ?? ''))
+
+            @section('content')
+                 <h1>Admin View Adopted Solution</h1>
+
+                 <div class="card mb-3">
+                     <div class="card-header">Original Comment & Problem</div>
+                     <div class="card-body">
+                         <p><strong>Problem:</strong> <a href="{{ route('problems.show', $solution->adoptedComment->problem) }}">{{ $solution->adoptedComment->problem->title ?? 'N/A' }}</a></p>
+                         <p><strong>Original Comment Author:</strong> {{ $solution->adoptedComment->author->username ?? 'N/A' }}</p>
+                         <p><strong>Comment Content:</strong></p>
+                         <div class="border p-3 mb-3">{{ $solution->adoptedComment->content ?? 'N/A' }}</div>
+                          <p><a href="{{ route('problems.show', $solution->adoptedComment->problem) }}#comment-{{ $solution->comment_id }}">View original comment in problem</a></p>
+                     </div>
+                 </div>
+
+                  <div class="card mb-3">
+                      <div class="card-header">Adoption Details by {{ $solution->adoptingOrganization->name ?? 'N/A Organization' }}</div>
+                      <div class="card-body">
+                          <p><strong>Adopting Organization:</strong> {{ $solution->adoptingOrganization->name ?? 'N/A' }}</p>
+                          <p><strong>Adoption Status:</strong> {{ $solution->status }}</p>
+                          <p><strong>Adopted On:</strong> {{ $solution->created_at->format('Y-m-d H:i') }}</p>
+                          <p><strong>Last Updated:</strong> {{ $solution->updated_at->format('Y-m-d H:i') }}</p>
+
+                           <p><strong>Organization Notes:</strong></p>
+                          <div class="border p-3">{{ $solution->organization_notes ?? 'No notes added yet.' }}</div>
+
+
+                          {{-- Form to update status and notes (similar to OrganizationController but for Admin) --}}
+                          <h6 class="mt-4">Update Status and Notes</h6>
+                          <form action="{{ route('admin.solutions.update', $solution) }}" method="POST">
+                              @csrf
+                              @method('PUT')
+                              <div class="form-group">
+                                  <label for="status">Status</label>
+                                  <select class="form-control @error('status') is-invalid @enderror" id="status" name="status" required>
+                                      <option value="UnderConsideration" {{ old('status', $solution->status) === 'UnderConsideration' ? 'selected' : '' }}>Under Consideration</option>
+                                      <option value="Adopted" {{ old('status', $solution->status) === 'Adopted' ? 'selected' : '' }}>Adopted</option>
+                                      <option value="ImplementationInProgress" {{ old('status', $solution->status) === 'ImplementationInProgress' ? 'selected' : '' }}>Implementation In Progress</option>
+                                      <option value="ImplementationCompleted" {{ old('status', $solution->status) === 'ImplementationCompleted' ? 'selected' : '' }}>Implementation Completed</option>
+                                      <option value="RejectedByOrganization" {{ old('status', $solution->status) === 'RejectedByOrganization' ? 'selected' : '' }}>Rejected by Organization</option>
+                                  </select>
+                                   @error('status') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                              </div>
+                               <div class="form-group">
+                                  <label for="organization_notes">Notes</label>
+                                  <textarea class="form-control @error('organization_notes') is-invalid @enderror" id="organization_notes" name="organization_notes" rows="3">{{ old('organization_notes', $solution->organization_notes) }}</textarea>
+                                   @error('organization_notes') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                              </div>
+                               <button type="submit" class="btn btn-primary">Update Solution Details</button>
+                          </form>
+                      </div>
+                  </div>
+
+                  {{-- Delete button --}}
+                  <form action="{{ route('admin.solutions.destroy', $solution) }}" method="POST" class="d-inline">
+                      @csrf
+                      @method('DELETE')
+                      <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this adopted solution?');">Delete Adopted Solution</button>
+                  </form>
+                   <a href="{{ route('admin.solutions.index') }}" class="btn btn-secondary">Back to List</a>
+
+
+            @endsection
+            ```
+            *ملاحظة:* نحتاج لإضافة دالتي `showAdoptedSolution` و `updateAdoptedSolution` في `AdminController`.
+
+**الخطوة التالية بعد إنشاء الواجهات:**
+
+الآن بعد أن أصبحت ملفات الواجهات موجودة، أصبح بإمكانك تشغيل مشروعك باستخدام `php artisan serve` وزيارة العناوين URL المختلفة (مثل `/`, `/problems`, `/login`) ورؤية الصفحات تعرض الهيكل الأساسي والبيانات التي تم تلقيمها باستخدام الـ Seeders.
+
+الخطوة العملية التالية هي:
+
+1.  **إكمال Seeders:** العودة إلى ملفات الـ Seeder التي أنشأناها في الخطوة السابقة وملء محتواها الفعلي وتشغيلها (`php artisan db:seed`). هذا سيجعل لديك بيانات حقيقية (وهمية) لتجربتها.
+2.  **إكمال منطق المتحكمات:** مراجعة الدوال في المتحكمات وملء أي منطق مفقود (مثل التحقق من الصلاحيات الدقيقة باستخدام Policies التي أنشأناها، معالجة تحميل الملفات إذا كانت جزءًا من ميزة أخرى، تحديث عدادات النقاط، إلخ).
+3.  **تحسين الواجهات:** البدء في تصميم وتنسيق ملفات Blade التي أنشأناها لتبدو أفضل، وإضافة المزيد من عناصر التفاعل (مثل استخدام Ajax للتصويت على التعليقات بدون تحديث كامل للصفحة).
+4.  **إنشاء Policies المتبقية:** إنشاء Policies للنماذج الأخرى التي تحتاج صلاحيات دقيقة (مثل `CommentPolicy`, `SolutionPolicy`, `AccountPolicy`) وتطبيقها في المتحكمات المعنية.
+5.  **إضافة ميزات مفقودة:** بناء الميزات الإضافية التي لم نغطها بالكامل (مثل استعادة كلمة المرور، صفحات عرض ملفات تعريف المستخدمين والمنظمات بشكل كامل، نظام الإشعارات، إلخ).
+
+الآن لديك قاعدة قوية جداً للبدء في بناء تطبيقك.
+
+
