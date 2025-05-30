@@ -6261,3 +6261,2062 @@ class ProblemController extends Controller
 الآن لديك قاعدة قوية جداً للبدء في بناء تطبيقك.
 
 
+تمام، هذا الخطأ `Argument #2 ($provider) must be of type Illuminate\Contracts\Auth\UserProvider, null given` يعني أن نظام المصادقة في Laravel (الـ Guard المحدد، وهو 'web' افتراضيًا) لا يستطيع العثور على الـ User Provider (مزود المستخدمين) الذي تم تكوينه له.
+
+السبب هو أنك قمت بتغيير اسم الـ provider من `'users'` إلى `'accounts'` في قسم `providers` بملف `config/auth.php`، وهو صحيح لتوجيهه إلى نموذج `Account` الجديد. ولكنك لم تقم بتحديث الـ **Guard** (`web` في قسم `guards`) ليشير إلى اسم الـ provider الجديد هذا.
+
+Guard 'web' لا يزال يبحث عن provider اسمه 'users'، والذي إما لم يعد موجودًا أو لا يشير بشكل صحيح إلى نموذج `Account`.
+
+**الحل:**
+
+تحتاج إلى تحديث قسم `guards` في ملف `config/auth.php` ليشير إلى اسم الـ provider الصحيح (`'accounts'`).
+
+افتح ملف `config/auth.php` وتأكد من أن التغييرات كالتالي:
+
+```php
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Authentication Defaults
+    |--------------------------------------------------------------------------
+    |
+    | This option controls the default authentication "guard" and password
+    | reset options for your application. You may change these defaults
+    | as required, but they're a perfect start for most applications.
+    |
+    */
+
+    'defaults' => [
+        'guard' => 'web',
+        'passwords' => 'accounts', // تأكد أن هذا يشير إلى قسم passwords الصحيح
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Authentication Guards
+    |--------------------------------------------------------------------------
+    |
+    | Next, you may define every authentication guard for your application.
+    | Of course, a great default configuration has been defined for you
+    | here which uses session storage and the Eloquent user provider.
+    |
+    | All authentication drivers have a user provider. This defines how the
+    | users are actually retrieved out of your database or other storage
+    | mechanisms used by this application to persist your user's data.
+    |
+    | Supported: "session"
+    |
+    */
+
+    'guards' => [
+        'web' => [
+            'driver' => 'session',
+            'provider' => 'accounts', // <--- يجب تغيير هذا من 'users' إلى 'accounts'
+        ],
+        // يمكنك إضافة Guards أخرى هنا إذا لزم الأمر (مثل 'api')
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | User Providers
+    |--------------------------------------------------------------------------
+    |
+    | All authentication drivers have a user provider. This defines how the
+    | users are actually retrieved out of your database or other storage
+    | mechanisms used by this application to persist your user's data.
+    |
+    | If you have multiple user tables or models you may configure multiple
+    | sources which represent each model / table. These sources may then
+    | be assigned to any extra authentication guards you have defined.
+    |
+    | Supported: "database", "eloquent"
+    |
+    */
+
+    'providers' => [
+        'accounts' => [ // <--- اسم Provider الصحيح الذي يشير إلى نموذج Account
+            'driver' => 'eloquent',
+            'model' => App\Models\Account::class, // <--- يشير إلى نموذج Account
+        ],
+
+        // تأكد من حذف أو تعطيل تعريف Provider 'users' القديم إذا كان موجودًا هنا
+        // 'users' => [
+        //     'driver' => 'eloquent',
+        //     'model' => App\Models\User::class, // هذا النموذج غير موجود الآن
+        // ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Resetting Passwords
+    |--------------------------------------------------------------------------
+    |
+    | You may specify multiple password reset configurations if you have more
+    | than one user table or model in the application and you want to have
+    | separate password reset settings based on the specific user types.
+    |
+    | The expiry time is the number of minutes that each reset token will be
+    | considered valid. This security feature keeps tokens short-lived so
+    | they have less time to be guessed. You may change this as needed.
+    |
+    | The throttle setting is the number of seconds a user must wait before
+    | generating more password reset tokens. This prevents the user from
+    | quickly generating a very large amount of password reset tokens.
+    |
+    */
+
+    'passwords' => [
+        'accounts' => [ // <--- تأكد أن هذا يشير إلى الـ Provider الصحيح
+            'provider' => 'accounts', // <--- يجب تغيير هذا من 'users' إلى 'accounts'
+            'table' => 'password_reset_tokens', // جدول رموز استعادة كلمة المرور (يمكن تركه أو تغييره لaccount_password_reset_tokens إذا أردت فصله)
+            'expire' => 60,
+            'throttle' => 60,
+        ],
+        // تأكد من حذف أو تعطيل تعريف passwords 'users' القديم إذا كان موجودًا هنا
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Password Confirmation Timeout
+    |--------------------------------------------------------------------------
+    |
+    | Here you may define the amount of seconds before a password confirmation
+    | times out and the user is prompted to re-enter their password via the
+    | confirmation screen. By default, the timeout lasts for three hours.
+    |
+    */
+
+    'password_timeout' => 10800,
+
+];
+```
+
+بعد إجراء هذا التعديل في ملف `config/auth.php` (خاصة تغيير `'provider'` في `guards['web']` إلى `'accounts'`)، قم بتشغيل أوامر تنظيف الكاش مرة أخرى للتأكد من تحميل التكوين الجديد:
+
+```bash
+php artisan config:clear
+php artisan cache:clear
+php artisan route:clear
+php artisan view:clear
+composer dump-autoload
+```
+
+هذا يجب أن يحل مشكلة الـ `null` provider، حيث سيتم الآن توجيه الـ Guard 'web' لاستخدام الـ provider المعرف باسم 'accounts' والذي يشير بشكل صحيح إلى نموذج `App\Models\Account`.
+
+
+
+---
+
+
+تمام، أنت على حق. الخطأ يحدث لأنك تستخدم `Route::resource` مع متحكم واحد (`AdminController`) لعدة موارد مختلفة (`accounts`, `problems`, `categories`, `badges`, `solutions`). `Route::resource` يتوقع وجود دوال بالأسماء القياسية (مثل `index`, `create`, `store`, `edit`, `update`, `destroy`) داخل المتحكم للمورد المحدد.
+
+عندما تكتب `Route::resource('accounts', AdminController::class)`, يتوقع Laravel وجود الدوال التالية في `AdminController` لإدارة **الحسابات**:
+*   `index()` لعرض قائمة الحسابات.
+*   `create()` لعرض نموذج إنشاء حساب.
+*   `store()` لمعالجة إنشاء حساب.
+*   `show(Account $account)` لعرض حساب واحد.
+*   `edit(Account $account)` لعرض نموذج تعديل حساب.
+*   `update(Request $request, Account $account)` لمعالجة تعديل حساب.
+*   `destroy(Account $account)` لمعالجة حذف حساب.
+
+لكنك في متحكمك `AdminController`، استخدمت أسماء دوال مثل `indexAccounts`, `editAccount`, `updateAccount`, `destroyAccount` لإدارة الحسابات. هذا يسبب عدم تطابق.
+
+**الحل الأفضل والأكثر تنظيمًا في Laravel** هو استخدام متحكم منفصل لكل مورد تديره، خاصة في منطقة مثل لوحة التحكم الإدارية. سنقوم بإنشاء مجلد `Admin` داخل مجلد `app/Http/Controllers` ونضع متحكمًا لكل مورد فيه.
+
+**الخطوات:**
+
+1.  **إنشاء متحكمات جديدة في مجلد Admin:**
+    سنقوم بإنشاء متحكم لكل مورد إداري:
+    ```bash
+    php artisan make:controller Admin/AccountController
+    php artisan make:controller Admin/ProblemController
+    php artisan make:controller Admin/CategoryController
+    php artisan make:controller Admin/BadgeController
+    php artisan make:controller Admin/SolutionController
+    ```
+    سيتم إنشاء هذه الملفات في `app/Http/Controllers/Admin/`.
+
+2.  **تحديث ملف المسارات `routes/web.php`:**
+    سنقوم بتعديل المسارات ضمن مجموعة `admin` لتشير كل `Route::resource` إلى المتحكم المخصص لها.
+
+    ```php
+    <?php
+
+    use Illuminate\Support\Facades\Route;
+    use App\Http\Controllers\HomeController;
+    use App\Http\Controllers\AuthController;
+    use App\Http\Controllers\ProfileController;
+    use App\Http\Controllers\ProblemController;
+    use App\Http\Controllers\CommentController;
+    use App\Http\Controllers\CommentVoteController;
+    use App\Http\Controllers\BadgeController;
+    use App\Http\Controllers\OrganizationController;
+    use App\Http\Controllers\SolutionController as PublicSolutionController; // إعادة تسمية لتجنب التضارب
+    use App\Http\Controllers\AdminController; // المتحكم العام للمسؤول
+    // استيراد المتحكمات الجديدة في مجلد Admin
+    use App\Http\Controllers\Admin\AccountController as AdminAccountController;
+    use App\Http\Controllers\Admin\ProblemController as AdminProblemController;
+    use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
+    use App\Http\Controllers\Admin\BadgeController as AdminBadgeController;
+    use App\Http\Controllers\Admin\SolutionController as AdminSolutionController;
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Web Routes
+    |--------------------------------------------------------------------------
+    |
+    | Here is where you can register web routes for your application. These
+    | routes are loaded by the RouteServiceProvider and all of them will
+    | be assigned to the "web" middleware group. Make something great!
+    |
+    */
+
+    // --- Public Routes ---
+    Route::get('/', [HomeController::class, 'index'])->name('home');
+    Route::get('/problems', [ProblemController::class, 'index'])->name('problems.index');
+    Route::get('/problems/{problem}', [ProblemController::class, 'show'])->name('problems.show');
+    Route::get('/badges', [BadgeController::class, 'index'])->name('badges.index');
+    Route::get('/profiles/{account}', [ProfileController::class, 'show'])->name('profiles.show');
+    Route::get('/solutions', [PublicSolutionController::class, 'index'])->name('solutions.index'); // استخدام المتحكم العام للحلول للعرض العام
+    Route::get('/solutions/{solution}', [PublicSolutionController::class, 'show'])->name('solutions.show'); // عرض تفاصيل حل عام
+
+
+    // --- Authentication Routes ---
+    Route::get('/register', [AuthController::class, 'showRegistrationForm'])->name('register');
+    Route::post('/register', [AuthController::class, 'register']);
+
+    Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [AuthController::class, 'login']);
+
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
+
+
+    // --- Authenticated User/Organization Routes ---
+    Route::middleware('auth')->group(function () {
+        Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
+        Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::get('/profile/badges', [ProfileController::class, 'showMyBadges'])->name('profile.badges');
+
+        Route::get('/problems/create', [ProblemController::class, 'create'])->name('problems.create');
+        Route::post('/problems', [ProblemController::class, 'store'])->name('problems.store');
+
+        Route::get('/problems/{problem}/edit', [ProblemController::class, 'edit'])->name('problems.edit');
+        Route::put('/problems/{problem}', [ProblemController::class, 'update'])->name('problems.update');
+        Route::delete('/problems/{problem}', [ProblemController::class, 'destroy'])->name('problems.destroy');
+
+        Route::post('/comments', [CommentController::class, 'store'])->name('comments.store');
+        Route::get('/comments/{comment}/edit', [CommentController::class, 'edit'])->name('comments.edit');
+        Route::put('/comments/{comment}', [CommentController::class, 'update'])->name('comments.update');
+        Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
+
+        Route::post('/comments/{comment}/vote', [CommentVoteController::class, 'vote'])->name('comments.vote');
+    });
+
+
+    // --- Organization Specific Routes ---
+    Route::middleware(['auth', 'isOrganization'])->prefix('organization')->name('organization.')->group(function () {
+        // Route::get('/dashboard', [OrganizationController::class, 'dashboard'])->name('dashboard'); // يمكن إضافة لوحة تحكم للمنظمة هنا
+
+        Route::post('/adopt-comment/{comment}', [OrganizationController::class, 'adoptComment'])->name('adoptComment');
+
+        Route::get('/solutions', [OrganizationController::class, 'listAdoptedSolutions'])->name('listAdoptedSolutions');
+        Route::get('/solutions/{solution}', [OrganizationController::class, 'showAdoptedSolution'])->name('showAdoptedSolution');
+        Route::put('/solutions/{solution}/status', [OrganizationController::class, 'updateAdoptedSolutionStatus'])->name('updateAdoptedSolutionStatus');
+
+        Route::get('/categories/interests', [OrganizationController::class, 'editCategoryInterests'])->name('editCategoryInterests');
+        Route::post('/categories/interests', [OrganizationController::class, 'updateCategoryInterests'])->name('updateCategoryInterests');
+
+    });
+
+    // --- Admin Routes ---
+    // استخدم المتحكمات المخصصة لكل مورد في منطقة المسؤول
+    Route::middleware(['auth', 'isAdmin'])->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+
+        // إدارة الحسابات باستخدام Admin\AccountController
+        Route::resource('accounts', AdminAccountController::class)->except(['show']);
+
+        // إدارة المشاكل باستخدام Admin\ProblemController
+        Route::resource('problems', AdminProblemController::class)->except(['create', 'store', 'show']);
+
+        // إدارة الفئات باستخدام Admin\CategoryController
+        Route::resource('categories', AdminCategoryController::class)->except(['show']);
+
+        // إدارة الألقاب باستخدام Admin\BadgeController
+        Route::resource('badges', AdminBadgeController::class)->except(['show']);
+
+         // إدارة الحلول المعتمدة باستخدام Admin\SolutionController
+        Route::resource('solutions', AdminSolutionController::class)->except(['create', 'store', 'edit']);
+
+        // يمكن إضافة مسارات إضافية هنا لميزات المسؤول الأخرى (مثل إدارة التعليقات يدوياً، الإبلاغات)
+
+    });
+
+    ```
+    *ملاحظة:* قمت بإعادة تسمية `SolutionController` العامة إلى `PublicSolutionController` في الاستيراد لتجنب التضارب مع `Admin\SolutionController`.
+
+3.  **نقل وتعديل الدوال في المتحكمات الجديدة:**
+    سنقوم الآن بنقل الدوال ذات الصلة من `AdminController` إلى المتحكمات الجديدة في مجلد `Admin`، مع تغيير أسماء الدوال لتتوافق مع اتفاقية `Route::resource` (أي استخدام `index`, `edit`, `update`, `destroy`).
+
+    **أ. تعديل `app/Http/Controllers/AdminController.php`:**
+    اجعل هذا المتحكم يحتوي فقط على الدالة `dashboard` والـ constructor.
+
+    ```php
+    <?php
+
+    namespace App\Http\Controllers;
+
+    use App\Models\Account; // قد تحتاجها للإحصائيات في الداشبورد
+    use App\Models\Problem; // قد تحتاجها للإحصائيات
+    use App\Models\Comment; // قد تحتاجها للإحصائيات
+    use App\Models\Solution; // قد تحتاجها للإحصائيات
+    use Illuminate\Http\Request;
+    use Illuminate\Support\Facades\Auth; // للتأكد من المستخدم في الـ middleware
+    // لا حاجة لاستيراد النماذج الأخرى مثل ProblemCategory, Badge هنا
+
+    class AdminController extends Controller
+    {
+        // تطبيق middleware 'isAdmin' على جميع دوال هذا المتحكم
+        public function __construct()
+        {
+           $this->middleware('isAdmin');
+        }
+
+        /**
+         * Display the admin dashboard.
+         */
+        public function dashboard()
+        {
+            // جلب إحصائيات سريعة للمسؤول
+            $accountsCount = Account::count();
+            $problemsCount = Problem::count();
+            $commentsCount = Comment::count();
+            $adoptedSolutionsCount = Solution::count();
+
+            // ستنشئ الواجهة لاحقاً: resources/views/admin/dashboard.blade.php
+            return view('admin.dashboard', compact('accountsCount', 'problemsCount', 'commentsCount', 'adoptedSolutionsCount'));
+        }
+
+        // تم نقل جميع دوال إدارة الموارد الأخرى إلى متحكمات مخصصة في مجلد Admin
+    }
+    ```
+
+    **ب. إنشاء `app/Http/Controllers/Admin/AccountController.php`:**
+    نقل الدوال المتعلقة بالحسابات.
+
+    ```php
+    <?php
+
+    namespace App\Http\Controllers\Admin; // لاحظ namespace
+
+    use App\Http\Controllers\Controller; // استيراد المتحكم الأساسي
+    use App\Models\Account;
+    use Illuminate\Http\Request;
+    use Illuminate\Support\Facades\Auth;
+    use Illuminate\Validation\Rule;
+    use Illuminate\Support\Facades\Hash; // إذا أردت إضافة تغيير كلمة مرور هنا
+
+    class AccountController extends Controller // لاحظ اسم الفئة
+    {
+        public function __construct()
+        {
+            // تطبيق middleware 'isAdmin' على جميع دوال هذا المتحكم
+            $this->middleware('isAdmin');
+            // يمكنك إضافة policies هنا إذا أردت صلاحيات أدق للمسؤولين الفرعيين مثلاً
+            // $this->authorizeResource(Account::class, 'account');
+        }
+
+        /**
+         * Display a listing of the accounts. (admin/accounts GET)
+         */
+        public function index() // اسم الدالة القياسي
+        {
+            $accounts = Account::with('userProfile', 'organizationProfile')->paginate(20);
+            // الواجهة: resources/views/admin/accounts/index.blade.php
+            return view('admin.accounts.index', compact('accounts'));
+        }
+
+        /**
+         * Show the form for creating a new account. (admin/accounts/create GET)
+         * لم نضف مسار create/store لـ accounts في admin resource في routes/web.php
+         * إذا احتجت هذه الميزة، يجب تفعيلها في routes/web.php وإضافة هذه الدالة ودالة store هنا.
+         */
+        // public function create() { }
+        // public function store(Request $request) { }
+
+
+        /**
+         * Show the form for editing the specified account. (admin/accounts/{account}/edit GET)
+         */
+        public function edit(Account $account) // Model binding
+        {
+            $account->load('userProfile', 'organizationProfile'); // تحميل البيانات المرتبطة للواجهة
+            // الواجهة: resources/views/admin/accounts/edit.blade.php
+            return view('admin.accounts.edit', compact('account'));
+        }
+
+        /**
+         * Update the specified account in storage. (admin/accounts/{account} PUT)
+         */
+        public function update(Request $request, Account $account) // Model binding
+        {
+            $request->validate([
+                'username' => ['required', 'string', 'max:255', Rule::unique('accounts')->ignore($account->id)],
+                'email' => ['required', 'string', 'email', 'max:255', Rule::unique('accounts')->ignore($account->id)],
+                'account_type' => ['required', 'string', Rule::in(['individual', 'organization', 'admin'])],
+                'points' => 'required|integer|min:0',
+                'is_active' => 'boolean',
+                // التحقق من حقول ملف التعريف سيحتاج منطقاً إضافياً هنا أو فصله
+                // 'profile_name' => Rule::requiredIf($request->account_type !== 'individual'), // مثال
+            ]);
+
+            // تحديث حقول جدول Accounts
+            $account->update($request->only(['username', 'email', 'account_type', 'points', 'is_active']));
+
+            // هنا يمكن إضافة منطق لتحديث ملف التعريف المرتبط (UserProfile أو OrganizationProfile)
+            // بناءً على نوع الحساب وبيانات الطلب
+
+            return redirect()->route('admin.accounts.index')->with('success', 'Account updated successfully.');
+        }
+
+        /**
+         * Remove the specified account from storage. (admin/accounts/{account} DELETE)
+         */
+        public function destroy(Account $account) // Model binding
+        {
+            // منع المسؤول من حذف حسابه الخاص من هذه الواجهة
+            if (Auth::id() === $account->id) {
+                return back()->with('error', 'You cannot delete your own account.');
+            }
+
+            // تحذير: حذف حساب سيحذف كل شيء مرتبط به بسبب onDelete('cascade')
+            $account->delete();
+
+            return redirect()->route('admin.accounts.index')->with('success', 'Account deleted successfully.');
+        }
+    }
+    ```
+
+    **ج. إنشاء `app/Http/Controllers/Admin/ProblemController.php`:**
+    نقل الدوال المتعلقة بالمشاكل.
+
+    ```php
+    <?php
+
+    namespace App\Http\Controllers\Admin;
+
+    use App\Http\Controllers\Controller;
+    use App\Models\Problem;
+    use App\Models\ProblemCategory;
+    use Illuminate\Http\Request;
+    use Illuminate\Validation\Rule;
+
+    class ProblemController extends Controller
+    {
+         public function __construct()
+         {
+            $this->middleware('isAdmin');
+            // يمكنك إضافة policy هنا إذا أردت صلاحيات أدق
+            // $this->authorizeResource(Problem::class, 'problem'); // يمكن استخدامها لتطبيق policy ProblemPolicy
+         }
+
+        /**
+         * Display a listing of the problems. (admin/problems GET)
+         */
+        public function index() // اسم الدالة القياسي
+        {
+            $problems = Problem::with('submittedBy', 'category')->latest()->paginate(20);
+            // الواجهة: resources/views/admin/problems/index.blade.php
+            return view('admin.problems.index', compact('problems'));
+        }
+
+        /**
+         * Show the form for editing the specified problem. (admin/problems/{problem}/edit GET)
+         */
+        public function edit(Problem $problem) // Model binding
+        {
+            $categories = ProblemCategory::all(); // لجلب الفئات في النموذج
+            // الواجهة: resources/views/admin/problems/edit.blade.php
+            return view('admin.problems.edit', compact('problem', 'categories'));
+        }
+
+        /**
+         * Update the specified problem in storage. (admin/problems/{problem} PUT)
+         */
+        public function update(Request $request, Problem $problem) // Model binding
+        {
+             $request->validate([
+                'title' => 'required|string|max:255',
+                'description' => 'required|string',
+                'category_id' => 'required|exists:problem_categories,id',
+                'urgency' => ['required', Rule::in(['Low', 'Medium', 'High'])],
+                'status' => ['required', Rule::in(['Draft', 'Published', 'UnderReview', 'Hidden', 'Suspended', 'Resolved', 'Archived'])], // المسؤول يمكنه تغيير كل الحالات
+                'tags' => 'nullable|string',
+            ]);
+
+            $problem->update($request->only(['title', 'description', 'category_id', 'urgency', 'status', 'tags']));
+
+            return redirect()->route('admin.problems.index')->with('success', 'Problem updated successfully.');
+        }
+
+        /**
+         * Remove the specified problem from storage. (admin/problems/{problem} DELETE)
+         */
+        public function destroy(Problem $problem) // Model binding
+        {
+             // يمكن إضافة فحص policy هنا إذا كنت تستخدمها
+            // $this->authorize('delete', $problem);
+
+            $problem->delete(); // حذف المشكلة وكل ما يتعلق بها (تعليقات، حلول معتمدة)
+
+            return redirect()->route('admin.problems.index')->with('success', 'Problem deleted successfully.');
+        }
+
+        // الدوال create, store, show ليست مطلوبة لهذا الـ resource حسب تعريف routes/web.php
+    }
+    ```
+
+    **د. إنشاء `app/Http/Controllers/Admin/CategoryController.php`:**
+    نقل الدوال المتعلقة بالفئات.
+
+    ```php
+    <?php
+
+    namespace App\Http\Controllers\Admin;
+
+    use App\Http\Controllers\Controller;
+    use App\Models\ProblemCategory;
+    use Illuminate\Http\Request;
+    use Illuminate\Validation\Rule;
+
+    class CategoryController extends Controller
+    {
+         public function __construct()
+         {
+            $this->middleware('isAdmin');
+            // $this->authorizeResource(ProblemCategory::class, 'category'); // يمكن استخدامها لتطبيق policy
+         }
+
+        /**
+         * Display a listing of the categories. (admin/categories GET)
+         */
+        public function index() // اسم الدالة القياسي
+        {
+            $categories = ProblemCategory::with('parent')->get(); // جلب الفئات وعلاقتها بالفئة الأم
+            // الواجهة: resources/views/admin/categories/index.blade.php
+            return view('admin.categories.index', compact('categories'));
+        }
+
+        /**
+         * Show the form for creating a new category. (admin/categories/create GET)
+         */
+        public function create() // اسم الدالة القياسي
+        {
+            $categories = ProblemCategory::all(); // لجلب الفئات الأم المحتملة
+            // الواجهة: resources/views/admin/categories/create.blade.php
+            return view('admin.categories.create', compact('categories'));
+        }
+
+        /**
+         * Store a newly created category in storage. (admin/categories POST)
+         */
+        public function store(Request $request) // اسم الدالة القياسي
+        {
+            $request->validate([
+                'name' => 'required|string|max:100|unique:problem_categories', // اسم فريد
+                'description' => 'nullable|string',
+                'parent_category_id' => 'nullable|exists:problem_categories,id', // التحقق من وجود الفئة الأم
+            ]);
+
+            ProblemCategory::create($request->only(['name', 'description', 'parent_category_id']));
+
+            return redirect()->route('admin.categories.index')->with('success', 'Category created successfully.');
+        }
+
+
+        /**
+         * Show the form for editing the specified category. (admin/categories/{category}/edit GET)
+         */
+        public function edit(ProblemCategory $category) // Model binding
+        {
+             $categories = ProblemCategory::where('id', '!=', $category->id)->get(); // جلب الفئات الأخرى كآباء محتملين
+            // الواجهة: resources/views/admin/categories/edit.blade.php
+            return view('admin.categories.edit', compact('category', 'categories'));
+        }
+
+        /**
+         * Update the specified category in storage. (admin/categories/{category} PUT)
+         */
+        public function update(Request $request, ProblemCategory $category) // Model binding
+        {
+            $request->validate([
+                'name' => ['required', 'string', 'max:100', Rule::unique('problem_categories')->ignore($category->id)],
+                'description' => 'nullable|string',
+                // منع الفئة من أن تكون ابناً لنفسها أو لأحد أبنائها لمنع الحلقات (منطق معقد يحتاج Policy أو تحقق إضافي)
+                'parent_category_id' => [
+                    'nullable',
+                    'exists:problem_categories,id',
+                     // إضافة تحقق مخصص لمنع الفئة من أن تكون أبناً لنفسها أو أبنائها
+                    Rule::notIn([$category->id]), // منع أن تكون هي الفئة الأم
+                    // التحقق من الأبناء يتطلب منطقاً خاصاً، يمكن تركه بسيطاً مبدئياً
+                ],
+            ]);
+
+            $category->update($request->only(['name', 'description', 'parent_category_id']));
+
+            return redirect()->route('admin.categories.index')->with('success', 'Category updated successfully.');
+        }
+
+        /**
+         * Remove the specified category from storage. (admin/categories/{category} DELETE)
+         */
+        public function destroy(ProblemCategory $category) // Model binding
+        {
+             // ملاحظة: حذف فئة قد يتطلب تحديث المشاكل التي تنتمي إليها (مثلاً تعيين category_id إلى null أو حذف المشاكل)
+             // بناءً على onDelete في الهجرة (في حالتنا cascade تحذف المشاكل)
+             // إذا كانت onDelete('set null') في الهجرة، يجب التأكد من أن العمود nullable وأنك لا تحتاج لخطوات إضافية هنا
+
+            $category->delete(); // حذف الفئة
+
+            return redirect()->route('admin.categories.index')->with('success', 'Category deleted successfully.');
+        }
+
+        // دالة show ليست مطلوبة لهذا الـ resource
+    }
+    ```
+
+    **هـ. إنشاء `app/Http/Controllers/Admin/BadgeController.php`:**
+    نقل الدوال المتعلقة بالألقاب.
+
+    ```php
+    <?php
+
+    namespace App\Http\Controllers\Admin;
+
+    use App\Http\Controllers\Controller;
+    use App\Models\Badge;
+    use Illuminate\Http\Request;
+    use Illuminate\Validation\Rule;
+
+    class BadgeController extends Controller
+    {
+         public function __construct()
+         {
+            $this->middleware('isAdmin');
+            // $this->authorizeResource(Badge::class, 'badge'); // يمكن استخدامها لتطبيق policy
+         }
+
+        /**
+         * Display a listing of the badges. (admin/badges GET)
+         */
+        public function index() // اسم الدالة القياسي
+        {
+            $badges = Badge::all(); // لا حاجة لتقسيم الصفحات لعدد قليل من الألقاب عادةً
+            // الواجهة: resources/views/admin/badges/index.blade.php
+            return view('admin.badges.index', compact('badges'));
+        }
+
+        /**
+         * Show the form for creating a new badge. (admin/badges/create GET)
+         */
+        public function create() // اسم الدالة القياسي
+        {
+            // الواجهة: resources/views/admin/badges/create.blade.php
+            return view('admin.badges.create');
+        }
+
+        /**
+         * Store a newly created badge in storage. (admin/badges POST)
+         */
+        public function store(Request $request) // اسم الدالة القياسي
+        {
+            $request->validate([
+                'name' => 'required|string|max:100|unique:badges', // اسم فريد
+                'description' => 'nullable|string',
+                'image_url' => 'nullable|string|max:255|url', // التحقق من أنه رابط صالح
+                'required_points' => 'required|integer|min:0',
+                'required_adopted_comments_count' => 'required|integer|min:0',
+            ]);
+
+            Badge::create($request->all()); // يمكن استخدام $request->only() أيضاً
+
+            return redirect()->route('admin.badges.index')->with('success', 'Badge created successfully.');
+        }
+
+        /**
+         * Show the form for editing the specified badge. (admin/badges/{badge}/edit GET)
+         */
+        public function edit(Badge $badge) // Model binding
+        {
+            // الواجهة: resources/views/admin/badges/edit.blade.php
+            return view('admin.badges.edit', compact('badge'));
+        }
+
+        /**
+         * Update the specified badge in storage. (admin/badges/{badge} PUT)
+         */
+        public function update(Request $request, Badge $badge) // Model binding
+        {
+            $request->validate([
+                 'name' => ['required', 'string', 'max:100', Rule::unique('badges')->ignore($badge->id)],
+                'description' => 'nullable|string',
+                'image_url' => 'nullable|string|max:255|url',
+                'required_points' => 'required|integer|min:0',
+                'required_adopted_comments_count' => 'required|integer|min:0',
+            ]);
+
+            $badge->update($request->all());
+
+            return redirect()->route('admin.badges.index')->with('success', 'Badge updated successfully.');
+        }
+
+        /**
+         * Remove the specified badge from storage. (admin/badges/{badge} DELETE)
+         */
+        public function destroy(Badge $badge) // Model binding
+        {
+             // يمكن إضافة فحص قبل الحذف إذا كان هناك AccountBadge مرتبط (حذف AccountBadge المرتبط قد يكون تلقائيًا بسبب onDelete)
+            $badge->delete();
+
+            return redirect()->route('admin.badges.index')->with('success', 'Badge deleted successfully.');
+        }
+
+        // دالة show ليست مطلوبة لهذا الـ resource
+    }
+    ```
+
+    **و. إنشاء `app/Http/Controllers/Admin/SolutionController.php`:**
+    نقل الدوال المتعلقة بالحلول المعتمدة (Adopted Solutions).
+
+    ```php
+    <?php
+
+    namespace App\Http\Controllers\Admin;
+
+    use App\Http\Controllers\Controller;
+    use App\Models\Solution;
+    use Illuminate\Http\Request;
+    use Illuminate\Validation\Rule;
+
+    class SolutionController extends Controller
+    {
+         public function __construct()
+         {
+            $this->middleware('isAdmin');
+             // $this->authorizeResource(Solution::class, 'solution'); // يمكن استخدامها لتطبيق policy
+         }
+
+        /**
+         * Display a listing of the adopted solutions. (admin/solutions GET)
+         */
+        public function index() // اسم الدالة القياسي
+        {
+            $adoptedSolutions = Solution::with('adoptedComment.problem', 'adoptingOrganization.account', 'adoptedComment.author')
+                                         ->latest('updated_at')
+                                         ->paginate(20);
+            // الواجهة: resources/views/admin/solutions/index.blade.php
+            return view('admin.solutions.index', compact('adoptedSolutions'));
+        }
+
+
+        /**
+         * Display the specified adopted solution. (admin/solutions/{solution} GET)
+         */
+        public function show(Solution $solution) // اسم الدالة القياسي, Model binding
+        {
+             $solution->load('adoptedComment.problem', 'adoptingOrganization.account', 'adoptedComment.author.userProfile', 'adoptedComment.author.organizationProfile');
+            // الواجهة: resources/views/admin/solutions/show.blade.php
+            return view('admin.solutions.show', compact('solution'));
+        }
+
+        /**
+         * Update the specified adopted solution in storage. (admin/solutions/{solution} PUT)
+         * ملاحظة: مسار edit غير موجود لهذا الـ resource، التعديل يتم مباشرة من صفحة show.
+         */
+        public function update(Request $request, Solution $solution) // Model binding
+        {
+             $request->validate([
+                'status' => ['required', Rule::in(['UnderConsideration', 'Adopted', 'ImplementationInProgress', 'ImplementationCompleted', 'RejectedByOrganization'])],
+                 'organization_notes' => 'nullable|string',
+            ]);
+
+            $solution->update($request->only(['status', 'organization_notes']));
+
+            // يمكن هنا إضافة منطق إضافي عند تغيير الحالة (مثلاً إرسال إشعار للمستخدم، أو تحديث حالة المشكلة المرتبطة)
+
+            return redirect()->route('admin.solutions.index')->with('success', 'Adopted solution updated successfully.');
+        }
+
+        /**
+         * Remove the specified adopted solution from storage. (admin/solutions/{solution} DELETE)
+         */
+        public function destroy(Solution $solution) // Model binding
+        {
+             // حذف الحل المعتمد لا يؤثر على التعليق الأصلي
+            $solution->delete();
+
+            return redirect()->route('admin.solutions.index')->with('success', 'Adopted solution deleted successfully.');
+        }
+
+        // الدوال create, store, edit ليست مطلوبة لهذا الـ resource
+    }
+    ```
+
+4.  **تنظيف ذاكرة التخزين المؤقت (مهم):**
+    بعد هذه التغييرات الجوهرية في المسارات والمتحكمات، قم بتنظيف ذاكرة التخزين المؤقت مجدداً.
+    ```bash
+    php artisan config:clear
+    php artisan cache:clear
+    php artisan route:clear
+    php artisan view:clear
+    composer dump-autoload
+    ```
+
+الآن، كل `Route::resource` ضمن مجموعة `admin` يشير إلى متحكم مخصص له (`Admin\AccountController`, `Admin\ProblemController`, إلخ). كل من هذه المتحكمات يحتوي على الدوال القياسية (مثل `index`, `edit`, `update`, `destroy`) التي يتوقعها `Route::resource` لإدارة المورد الخاص به.
+
+مشاكل مثل `Method App\Http\Controllers\AdminController::index does not exist.` يجب أن تختفي الآن لأن Laravel سيبحث عن الدالة `index` في المتحكم الصحيح (`Admin\AccountController`, `Admin\ProblemController`, إلخ) اعتماداً على المسار.
+
+
+---
+تمام، فهمت طلبك بشكل واضح. تريد تعديل صفحة تسجيل الدخول (`login.blade.php`) لتشمل أزرارًا خاصة لتسجيل الدخول السريع بحسابات الاختبار (مدير، مستخدم، منظمة) التي سيتم إنشاؤها ببيانات معروفة في الـ Seeder. هذا مفيد جدًا لأغراض التطوير والاختبار.
+
+سنقوم بتعديل ملف `AccountsSeeder.php` أولاً لإضافة حسابات اختبار محددة يمكننا استخدامها بسهولة في صفحة تسجيل الدخول، ثم سنعدل ملف `resources/views/auth/login.blade.php` لإضافة هذه الأزرار.
+
+**أولاً: تعديل ملف `database/seeders/AccountsSeeder.php`**
+
+سنضيف تعريفًا صريحًا لحساب مستخدم فردي وحساب منظمة محددين ببيانات معروفة (مثل البريد الإلكتروني وكلمة المرور). سنحتفظ أيضًا بإنشاء الحسابات العشوائية الأخرى لملء القاعدة ببيانات أكبر.
+
+```php
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\Account;
+use App\Models\UserProfile; // نحتاج لإنشاء ملف شخصي للحسابات المحددة
+use App\Models\OrganizationProfile; // نحتاج لإنشاء ملف شخصي للحسابات المحددة
+use App\Models\Address; // نحتاج لربط ملفات التعريف بعناوين
+use Illuminate\Support\Facades\Hash;
+use Faker\Factory as Faker;
+
+class AccountsSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // DB::table('accounts')->truncate(); // يمكن استخدام truncate إذا أردت إعادة التلقيم من الصفر تماماً في كل مرة
+
+        $faker = Faker::create();
+        $addresses = Address::all(); // جلب العناوين المتاحة لربطها بملفات التعريف
+
+        if ($addresses->isEmpty()) {
+             $this->command->warn('Addresses table is empty. Cannot create profiles for specific accounts. Run AddressesSeeder first.');
+             // يمكنك هنا اختيار التوقف أو المتابعة بدون ملفات تعريف كاملة
+             // For now, let's continue but note that profiles for specific accounts might be incomplete
+        }
+
+        // --- حسابات اختبار محددة لسهولة تسجيل الدخول ---
+
+        // 1. حساب المدير
+        $adminAccount = Account::firstOrCreate(
+            ['email' => 'admin@example.com'],
+            [
+                'username' => 'admin',
+                'password' => Hash::make('password'), // كلمة المرور الافتراضية 'password'
+                'account_type' => 'admin',
+                'is_active' => true,
+                'points' => 0, // نقطة بداية للمدير
+            ]
+        );
+         $this->command->info("Created/found Admin account: " . $adminAccount->email);
+
+
+        // 2. حساب مستخدم فردي محدد
+        $individualAccount = Account::firstOrCreate(
+            ['email' => 'user@example.com'],
+            [
+                'username' => 'testuser',
+                'password' => Hash::make('password'), // كلمة المرور الافتراضية 'password'
+                'account_type' => 'individual',
+                'is_active' => true,
+                'points' => 50, // نقطة بداية للمستخدم الاختبار
+            ]
+        );
+         // إنشاء ملف التعريف المرتبط إذا لم يكن موجوداً
+         if ($individualAccount->wasRecentlyCreated || !$individualAccount->userProfile) {
+             UserProfile::firstOrCreate(
+                 ['account_id' => $individualAccount->id],
+                 [
+                     'first_name' => 'Test',
+                     'last_name' => 'User',
+                     'phone' => $faker->phoneNumber,
+                     'address_id' => $addresses->random()->id ?? null, // ربط بعنوان عشوائي أو null
+                     'bio' => 'This is a test individual user account.',
+                 ]
+             );
+         }
+         $this->command->info("Created/found Individual account: " . $individualAccount->email);
+
+
+        // 3. حساب منظمة محدد
+         $organizationAccount = Account::firstOrCreate(
+            ['email' => 'org@example.com'],
+            [
+                'username' => 'testorg',
+                'password' => Hash::make('password'), // كلمة المرور الافتراضية 'password'
+                'account_type' => 'organization',
+                'is_active' => true,
+                'points' => 100, // نقطة بداية للمنظمة الاختبار
+            ]
+        );
+         // إنشاء ملف التعريف المرتبط إذا لم يكن موجوداً
+         if ($organizationAccount->wasRecentlyCreated || !$organizationAccount->organizationProfile) {
+             OrganizationProfile::firstOrCreate(
+                 ['account_id' => $organizationAccount->id],
+                 [
+                     'name' => 'Test Organization',
+                      'address_id' => $addresses->random()->id ?? null, // ربط بعنوان عشوائي أو null
+                     'info' => 'This is a test organization account for testing purposes.',
+                     'website_url' => $faker->url,
+                     'contact_email' => $organizationAccount->email,
+                 ]
+             );
+         }
+        $this->command->info("Created/found Organization account: " . $organizationAccount->email);
+
+
+        // --- حسابات عشوائية إضافية (للمستخدمين والمنظمات) ---
+
+        // إنشاء بعض الحسابات الفردية العشوائية الإضافية
+        $numberOfIndividuals = 30; // يمكن زيادة هذا العدد حسب الحاجة
+        for ($i = 0; $i < $numberOfIndividuals; $i++) {
+            $acc = Account::firstOrCreate(
+                ['email' => $faker->unique()->safeEmail],
+                [
+                    'username' => $faker->unique()->userName,
+                    'password' => Hash::make($faker->password), // كلمة مرور عشوائية لهم
+                    'account_type' => 'individual',
+                    'is_active' => true,
+                    'points' => $faker->numberBetween(0, 500),
+                ]
+            );
+             // إنشاء ملف تعريف لهم أيضاً
+             if ($acc->wasRecentlyCreated || !$acc->userProfile) {
+                 UserProfile::firstOrCreate(
+                     ['account_id' => $acc->id],
+                     [
+                         'first_name' => $faker->firstName,
+                         'last_name' => $faker->lastName,
+                         'phone' => $faker->phoneNumber,
+                         'address_id' => $addresses->random()->id ?? null,
+                         'bio' => $faker->sentence,
+                     ]
+                 );
+             }
+        }
+         $this->command->info("Created {$numberOfIndividuals} additional random individual accounts.");
+
+
+        // إنشاء بعض حسابات المنظمات العشوائية الإضافية
+        $numberOfOrganizations = 3; // يمكن زيادة هذا العدد حسب الحاجة
+        for ($i = 0; $i < $numberOfOrganizations; $i++) {
+             $acc = Account::firstOrCreate(
+                ['email' => $faker->unique()->companyEmail],
+                [
+                    'username' => $faker->unique()->companySuffix . '_' . $faker->randomNumber(3),
+                    'password' => Hash::make($faker->password), // كلمة مرور عشوائية لهم
+                    'account_type' => 'organization',
+                    'is_active' => true,
+                    'points' => $faker->numberBetween(0, 1000),
+                ]
+            );
+             // إنشاء ملف تعريف لهم أيضاً
+             if ($acc->wasRecentlyCreated || !$acc->organizationProfile) {
+                 OrganizationProfile::firstOrCreate(
+                     ['account_id' => $acc->id],
+                     [
+                         'name' => $faker->unique()->company,
+                         'address_id' => $addresses->random()->id ?? null,
+                         'info' => $faker->catchPhrase . ' focused on ' . $faker->bs,
+                         'website_url' => $faker->url,
+                         'contact_email' => $acc->email,
+                     ]
+                 );
+             }
+        }
+        $this->command->info("Created {$numberOfOrganizations} additional random organization accounts.");
+    }
+}
+```
+*ملاحظة:* أضفت في الـ Seeder ربط ملفات التعريف بالعناوين، ولذا يجب تشغيل `AddressesSeeder` قبل هذا الـ Seeder. `migrate:fresh --seed` يقوم بذلك تلقائيًا إذا كان `AddressesSeeder` مُستدعى في `DatabaseSeeder`.
+
+**ثانياً: تعديل ملف الواجهة `resources/views/auth/login.blade.php`**
+
+سنضيف قسمًا جديدًا أسفل نموذج تسجيل الدخول القياسي يحتوي على الأزرار التي تقوم تلقائيًا بإرسال بيانات حسابات الاختبار.
+
+```html
+@extends('layouts.app')
+
+@section('title', 'Login')
+
+@section('content')
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">Login</div>
+
+                <div class="card-body">
+                    <form method="POST" action="{{ route('login') }}">
+                        @csrf {{-- CSRF Token --}}
+
+                        <div class="form-group row">
+                            <label for="email" class="col-md-4 col-form-label text-md-right">E-Mail Address</label>
+                            <div class="col-md-6">
+                                <input id="email" type="email" class="form-control @error('email') is-invalid @enderror" name="email" value="{{ old('email') }}" required autocomplete="email" autofocus>
+                                @error('email')
+                                    <span class="invalid-feedback" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <label for="password" class="col-md-4 col-form-label text-md-right">Password</label>
+                            <div class="col-md-6">
+                                <input id="password" type="password" class="form-control @error('password') is-invalid @enderror" name="password" required autocomplete="current-password">
+                                @error('password')
+                                    <span class="invalid-feedback" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <div class="col-md-6 offset-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="remember" id="remember" {{ old('remember') ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="remember">
+                                        Remember Me
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group row mb-0">
+                            <div class="col-md-8 offset-md-4">
+                                <button type="submit" class="btn btn-primary">
+                                    Login
+                                </button>
+
+                                {{-- يمكنك إضافة رابط "Forgot Your Password?" هنا إذا كان لديك هذه الميزة --}}
+                                {{-- @if (Route::has('password.request'))
+                                    <a class="btn btn-link" href="{{ route('password.request') }}">
+                                        Forgot Your Password?
+                                    </a>
+                                @endif --}}
+                            </div>
+                        </div>
+                    </form>
+
+                    {{-- --- Development Login Buttons (for testing) --- --}}
+                    {{-- هذا القسم يظهر فقط لسهولة الاختبار في بيئة التطوير --}}
+                    @if (app()->environment('local') || app()->environment('staging')) {{-- يمكنك التحكم في بيئات الظهور --}}
+                        <hr class="my-4">
+                        <div class="text-center">
+                            <h5>Quick Login (Development)</h5>
+                            <p class="text-muted">Password for all test accounts: <strong>password</strong></p>
+
+                            {{-- Admin Login Form --}}
+                            <form method="POST" action="{{ route('login') }}" class="d-inline-block mr-2">
+                                @csrf
+                                <input type="hidden" name="email" value="admin@example.com">
+                                <input type="hidden" name="password" value="password">
+                                <button type="submit" class="btn btn-danger btn-sm">Login as Admin</button>
+                            </form>
+
+                             {{-- Individual User Login Form --}}
+                            <form method="POST" action="{{ route('login') }}" class="d-inline-block mr-2">
+                                @csrf
+                                <input type="hidden" name="email" value="user@example.com">
+                                <input type="hidden" name="password" value="password">
+                                <button type="submit" class="btn btn-secondary btn-sm">Login as Test User</button>
+                            </form>
+
+                             {{-- Organization Login Form --}}
+                            <form method="POST" action="{{ route('login') }}" class="d-inline-block mr-2">
+                                @csrf
+                                <input type="hidden" name="email" value="org@example.com">
+                                <input type="hidden" name="password" value="password">
+                                <button type="submit" class="btn btn-info btn-sm">Login as Test Organization</button>
+                            </form>
+                        </div>
+                     @endif
+                    {{-- --- End Development Login Buttons --- --}}
+
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+```
+
+**شرح التعديلات:**
+
+1.  **في `AccountsSeeder.php`:**
+    *   تم إضافة تعريفين صريحين لحساب مستخدم فردي ببريد إلكتروني `user@example.com` وحساب منظمة ببريد إلكتروني `org@example.com`. كلاهما يستخدم كلمة المرور 'password'.
+    *   تم استخدام `firstOrCreate` لضمان عدم تكرار هذه الحسابات إذا تم تشغيل الـ Seeder أكثر من مرة بدون مسح القاعدة.
+    *   تم إضافة منطق لإنشاء ملف تعريف (`UserProfile` أو `OrganizationProfile`) لهذه الحسابات المحددة وربطها بعنوان عشوائي موجود إذا أمكن.
+    *   تم الحفاظ على loops لإنشاء حسابات عشوائية إضافية لملء القاعدة ببيانات أكثر واقعية.
+
+2.  **في `login.blade.php`:**
+    *   تم إضافة قسم جديد يحتوي على عنوان وأزرار تسجيل الدخول السريع.
+    *   تم وضع هذا القسم داخل شرط `@if (app()->environment('local') || app()->environment('staging'))` للتأكد من ظهوره فقط في بيئات التطوير أو الـ staging وليس في بيئة الإنتاج النهائية.
+    *   لكل حساب اختبار (Admin, Test User, Test Organization)، تم إنشاء نموذج `<form>` صغير خاص به.
+    *   يحتوي كل نموذج على حقول `hidden` (مخفية) لإرسال البريد الإلكتروني وكلمة المرور المحددة لهذا الحساب تلقائيًا إلى مسار تسجيل الدخول (`route('login')`).
+    *   تم إضافة `@csrf` لكل نموذج منفصل لضمان حماية CSRF.
+    *   تم استخدام فئات Bootstrap (`d-inline-block`, `mr-2`, `btn-sm`, `btn-danger`, `btn-secondary`, `btn-info`) لتنسيق الأزرار بشكل بسيط.
+
+**لجعل هذا يعمل:**
+
+1.  احفظ التعديلات في ملفي `AccountsSeeder.php` و `login.blade.php`.
+2.  تأكد من أن ملف `config/auth.php` معدّل بشكل صحيح ليشير إلى نموذج `Account` كما شرحنا سابقاً.
+3.  قم بتنظيف الكاش وإعادة تشغيل الهجرات والتلقيم باستخدام الأمر التالي:
+
+    ```bash
+    php artisan migrate:fresh --seed
+    ```
+    سيؤدي هذا إلى مسح قاعدة البيانات، تشغيل جميع ملفات الهجرة (مما ينشئ الجداول بما في ذلك جدول `accounts` وملفات التعريف والعناوين)، ثم تشغيل جميع الـ Seeders (بما في ذلك `AddressesSeeder` و `AccountsSeeder` بالترتيب الصحيح).
+
+4.  بعد انتهاء الأمر، قم بتشغيل خادم Laravel:
+
+    ```bash
+    php artisan serve
+    ```
+
+الآن، عند زيارة صفحة `http://127.0.0.1:8000/login` في متصفحك (في بيئة `local`)، يجب أن ترى نموذج تسجيل الدخول القياسي بالإضافة إلى الأزرار الثلاثة الجديدة التي تسمح لك بتسجيل الدخول فورًا بحسابات الاختبار بكلمة المرور 'password' لكل منهم.
+
+---
+
+
+تمام، دعنا نتابع ونجهز ملفات الواجهة الأمامية (Views) الخاصة بقسم المنظمات كما هو مطلوب. المتحكم `OrganizationController` يشير إلى هذه الواجهات، لذا سنقوم الآن بإنشائها.
+
+لا يوجد أمر `php artisan make:view` تلقائيًا في Laravel لإنشاء ملفات الـ Blade. تقوم بإنشائها يدويًا في المجلدات المناسبة داخل `resources/views`.
+
+**الخطوات:**
+
+1.  **تأكد من وجود المجلدات:**
+    تأكد من وجود بنية المجلدات التالية داخل `resources/views/`:
+    ```
+    resources/views/
+    ├── layouts/
+    │   └── app.blade.php   (ملف التخطيط الأساسي الذي أنشأناه سابقاً)
+    ├── organization/
+    │   ├── adopted_solutions/
+    │   └── category_interests/
+    ├── ... باقي المجلدات (auth, problems, profiles, admin)
+    ```
+    إذا لم تكن موجودة، قم بإنشائها يدوياً.
+
+2.  **إنشاء وتصميم ملفات الواجهة:**
+
+    *   **ملف `resources/views/organization/adopted_solutions/index.blade.php`**
+        *   المتحكم: `OrganizationController@listAdoptedSolutions`
+        *   البيانات المتاحة: `$adoptedSolutions` (Pagination Collection of Solution models), `$organizationProfile` (OrganizationProfile model)
+
+        ```html
+        @extends('layouts.app')
+
+        @section('title', ($organizationProfile->name ?? 'Your Organization') . ' - Adopted Solutions')
+
+        @section('content')
+            <h1>Adopted Solutions by {{ $organizationProfile->name ?? 'Your Organization' }}</h1>
+
+            <p>Here are the comments that your organization has officially adopted as potential solutions.</p>
+
+            @if ($adoptedSolutions->isEmpty())
+                <div class="alert alert-info">
+                    Your organization has not adopted any comments as solutions yet. Explore the <a href="{{ route('problems.index') }}">problems</a> and find comments that align with your mission!
+                </div>
+            @else
+                 <div class="list-group">
+                    @foreach ($adoptedSolutions as $solution)
+                         <a href="{{ route('organization.showAdoptedSolution', $solution) }}" class="list-group-item list-group-item-action">
+                             <h5 class="mb-1">Solution for: {{ $solution->adoptedComment->problem->title ?? 'N/A Problem' }}</h5>
+                             <p class="mb-1">{{ \Illuminate\Support\Str::limit($solution->adoptedComment->content, 150) }}</p>
+                             <small>
+                                 Original Comment by: {{ $solution->adoptedComment->author->username ?? 'N/A' }} |
+                                 Current Status: <strong>{{ $solution->status }}</strong> |
+                                 Adopted On: {{ $solution->created_at->format('Y-m-d') }}
+                             </small>
+                         </a>
+                    @endforeach
+                 </div>
+
+                 <div class="mt-3">
+                     {{ $adoptedSolutions->links() }} {{-- لعرض روابط ترقيم الصفحات --}}
+                 </div>
+            @endif
+
+        @endsection
+        ```
+
+    *   **ملف `resources/views/organization/adopted_solutions/show.blade.php`**
+        *   المتحكم: `OrganizationController@showAdoptedSolution`
+        *   البيانات المتاحة: `$solution` (Solution model with loaded adoptedComment.problem, adoptedComment.author, adoptingOrganization)
+
+        ```html
+        @extends('layouts.app')
+
+        @section('title', 'Adopted Solution Details - ' . ($solution->adoptingOrganization->name ?? ''))
+
+        @section('content')
+            <h1>Adopted Solution Details</h1>
+
+            <div class="card mb-3">
+                <div class="card-header">Original Comment & Problem</div>
+                <div class="card-body">
+                    @if ($solution->adoptedComment && $solution->adoptedComment->problem)
+                         <p><strong>Problem:</strong> <a href="{{ route('problems.show', $solution->adoptedComment->problem) }}">{{ $solution->adoptedComment->problem->title }}</a></p>
+                         <p><strong>Category:</strong> {{ $solution->adoptedComment->problem->category->name ?? 'N/A' }}</p>
+                         <p><strong>Problem Status:</strong> {{ $solution->adoptedComment->problem->status ?? 'N/A' }}</p>
+                    @else
+                        <p class="text-muted">Problem or original comment not found.</p>
+                    @endif
+
+                    @if ($solution->adoptedComment && $solution->adoptedComment->author)
+                         <p><strong>Original Comment Author:</strong>
+                             @if ($solution->adoptedComment->author->isIndividual() && $solution->adoptedComment->author->userProfile)
+                                 {{ $solution->adoptedComment->author->userProfile->first_name ?? $solution->adoptedComment->author->username }} (Individual)
+                             @elseif ($solution->adoptedComment->author->isOrganization() && $solution->adoptedComment->author->organizationProfile)
+                                  {{ $solution->adoptedComment->author->organizationProfile->name ?? $solution->adoptedComment->author->username }} (Organization)
+                             @else
+                                 {{ $solution->adoptedComment->author->username ?? 'N/A' }}
+                             @endif
+                         </p>
+                         <p><strong>Comment Content:</strong></p>
+                         <div class="border p-3 mb-3">{{ $solution->adoptedComment->content }}</div>
+                          <p><a href="{{ route('problems.show', $solution->adoptedComment->problem) }}#comment-{{ $solution->comment_id }}" class="btn btn-sm btn-outline-secondary">View original comment in problem</a></p>
+                    @else
+                        <p class="text-muted">Original comment or author not found.</p>
+                    @endif
+
+                </div>
+            </div>
+
+             <div class="card mb-3">
+                 <div class="card-header">Adoption Details by {{ $solution->adoptingOrganization->name ?? 'Your Organization' }}</div>
+                 <div class="card-body">
+                     <p><strong>Adopting Organization:</strong> {{ $solution->adoptingOrganization->name ?? 'N/A' }}</p>
+                     <p><strong>Adoption Status:</strong> <strong>{{ $solution->status }}</strong></p>
+                     <p><strong>Adopted On:</strong> {{ $solution->created_at->format('Y-m-d H:i') }}</p>
+                     <p><strong>Last Updated:</strong> {{ $solution->updated_at->format('Y-m-d H:i') }}</p>
+
+                     <p><strong>Organization Notes:</strong></p>
+                     <div class="border p-3">{{ $solution->organization_notes ?? 'No notes added yet.' }}</div>
+
+                     {{-- Form to update status and notes --}}
+                     <h6 class="mt-4">Update Status and Notes</h6>
+                     <form action="{{ route('organization.updateAdoptedSolutionStatus', $solution) }}" method="POST">
+                         @csrf
+                         @method('PUT')
+                         <div class="form-group">
+                             <label for="status">Status</label>
+                             <select class="form-control @error('status') is-invalid @enderror" id="status" name="status" required>
+                                 @foreach (\App\Enums\AdoptedSolutionStatusEnum::cases() as $case) {{-- مثال لاستخدام Enums إذا قمت بتعريفها كـ PHP Enum --}}
+                                    <option value="{{ $case->value }}" {{ old('status', $solution->status) === $case->value ? 'selected' : '' }}>
+                                        {{ $case->name }} {{-- أو ترجمة الاسم --}}
+                                    </option>
+                                @endforeach
+                                {{-- البديل اليدوي بدون PHP Enum:
+                                 <option value="UnderConsideration" {{ old('status', $solution->status) === 'UnderConsideration' ? 'selected' : '' }}>Under Consideration</option>
+                                 <option value="Adopted" {{ old('status', $solution->status) === 'Adopted' ? 'selected' : '' }}>Adopted</option>
+                                 <option value="ImplementationInProgress" {{ old('status', $solution->status) === 'ImplementationInProgress' ? 'selected' : '' }}>Implementation In Progress</option>
+                                 <option value="ImplementationCompleted" {{ old('status', $solution->status) === 'ImplementationCompleted' ? 'selected' : '' }}>Implementation Completed</option>
+                                 <option value="RejectedByOrganization" {{ old('status', $solution->status) === 'RejectedByOrganization' ? 'selected' : '' }}>Rejected by Organization</option>
+                                 --}}
+                             </select>
+                              @error('status') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                         </div>
+                          <div class="form-group">
+                             <label for="organization_notes">Notes</label>
+                             <textarea class="form-control @error('organization_notes') is-invalid @enderror" id="organization_notes" name="organization_notes" rows="3">{{ old('organization_notes', $solution->organization_notes) }}</textarea>
+                              @error('organization_notes') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                         </div>
+                          <button type="submit" class="btn btn-primary">Update Solution Details</button>
+                           <a href="{{ route('organization.listAdoptedSolutions') }}" class="btn btn-secondary">Back to List</a>
+                     </form>
+
+                 </div>
+             </div>
+
+            {{-- يمكنك إضافة قسم لعرض المرفقات المرتبطة بالحل (إذا أعدت إضافتها للمشروع) --}}
+
+        @endsection
+        ```
+        *ملاحظة:* إذا كنت تريد استخدام `\App\Enums\AdoptedSolutionStatusEnum::cases()`, يجب عليك تعريف هذه الـ Enum في PHP. يمكنك إنشاء ملف `app/Enums/AdoptedSolutionStatusEnum.php` كالتالي:
+
+        ```php
+        <?php declare(strict_types=1); // لتفعيل Strict Types
+
+        namespace App\Enums;
+
+        use BenSampo\Enum\Enum; // تحتاج لتثبيت حزمة BenSampo/laravel-enum
+
+        /**
+         * @method static static UnderConsideration()
+         * @method static static Adopted()
+         * @method static static ImplementationInProgress()
+         * @method static static ImplementationCompleted()
+         * @method static static RejectedByOrganization()
+         */
+        final class AdoptedSolutionStatusEnum extends Enum
+        {
+            const UnderConsideration =   'UnderConsideration';
+            const Adopted =   'Adopted';
+            const ImplementationInProgress =   'ImplementationInProgress';
+            const ImplementationCompleted =   'ImplementationCompleted';
+            const RejectedByOrganization =   'RejectedByOrganization';
+        }
+        ```
+        وتحتاج لتثبيت الحزمة: `composer require bensampo/laravel-enum`. إذا لم تكن ترغب في استخدام هذه الحزمة، استخدم القائمة المنسدلة اليدوية كما هو موضح في التعليقات.
+
+    *   **ملف `resources/views/organization/category_interests/edit.blade.php`**
+        *   المتحكم: `OrganizationController@editCategoryInterests`
+        *   البيانات المتاحة: `$organizationProfile` (OrganizationProfile model), `$allCategories` (Collection of main ProblemCategory models with children), `$organizationInterests` (Array of IDs of categories the organization is currently interested in)
+
+        ```html
+        @extends('layouts.app')
+
+        @section('title', ($organizationProfile->name ?? 'Your Organization') . ' - Manage Interests')
+
+        @section('content')
+             <h1>Manage Category Interests for {{ $organizationProfile->name ?? 'Your Organization' }}</h1>
+
+             <p>Select the problem categories your organization is interested in. This might help us show you relevant problems and comments.</p>
+
+             <form action="{{ route('organization.updateCategoryInterests') }}" method="POST">
+                 @csrf
+
+                 <div class="form-group">
+                     <label>Problem Categories:</label>
+                     @error('categories') <div class="text-danger">Please select valid categories.</div> @enderror
+
+                     @foreach ($allCategories as $category)
+                         <div class="form-check">
+                             <input class="form-check-input @error('categories') is-invalid @enderror" type="checkbox" name="categories[]" value="{{ $category->id }}" id="category_{{ $category->id }}" {{ in_array($category->id, old('categories', $organizationInterests)) ? 'checked' : '' }}>
+                             <label class="form-check-label" for="category_{{ $category->id }}">
+                                 <strong>{{ $category->name }}</strong>
+                                 @if ($category->description)
+                                      <small class="text-muted">({{ \Illuminate\Support\Str::limit($category->description, 50) }})</small>
+                                 @endif
+                             </label>
+                         </div>
+                         @if ($category->children->isNotEmpty())
+                             <div class="ml-4"> {{-- Indent subcategories --}}
+                                 @foreach ($category->children as $childCategory)
+                                     <div class="form-check">
+                                          <input class="form-check-input @error('categories') is-invalid @enderror" type="checkbox" name="categories[]" value="{{ $childCategory->id }}" id="category_{{ $childCategory->id }}" {{ in_array($childCategory->id, old('categories', $organizationInterests)) ? 'checked' : '' }}>
+                                          <label class="form-check-label" for="category_{{ $childCategory->id }}">
+                                             {{ $childCategory->name }}
+                                              @if ($childCategory->description)
+                                                <small class="text-muted">({{ \Illuminate\Support\Str::limit($childCategory->description, 50) }})</small>
+                                             @endif
+                                         </label>
+                                     </div>
+                                 @endforeach
+                             </div>
+                         @endif
+                     @endforeach
+                     {{-- @error('categories.*') <span class="text-danger">{{ $message }}</span> @enderror --}} {{-- إذا أردت عرض خطأ لكل عنصر في المصفوفة --}}
+                 </div>
+
+
+                 <button type="submit" class="btn btn-primary">Update Interests</button>
+                 {{-- Redirect to a relevant page after updating, e.g., list of adopted solutions --}}
+                 <a href="{{ route('organization.listAdoptedSolutions') }}" class="btn btn-secondary">Cancel</a>
+
+             </form>
+        @endsection
+        ```
+
+الآن لديك ملفات الواجهة الأمامية الأساسية لقسم المنظمات. بعد إنشاء هذه الملفات وحفظها في المواقع الصحيحة، يجب أن تتمكن من زيارة المسارات المرتبطة بها في متصفحك (بعد تسجيل الدخول كمنظمة) ورؤية المحتوى يعرض البيانات من قاعدة البيانات. تذكر أن هذا هو مجرد هيكل أساسي، وستحتاج إلى المزيد من التنسيق والتصميم لجعلها تبدو جذابة وسهلة الاستخدام.
+
+---
+
+---
+نعم، يبدو أن هناك مشكلة في طريقة استخدام دالة `cases()` في واجهة Blade.  خطأ `Cannot construct an instance of AdoptedSolutionStatusEnum using the key (string) cases` يشير إلى أن Laravel يحاول تحويل السلسلة النصية `'cases'` إلى قيمة Enum داخل الكاست، وهو ما ليس صحيحاً.
+
+هذا يحدث غالباً عندما تحاول الوصول إلى دالة static في Blade باستخدام طريقة خاطئة أو عندما تتداخل عملية التحويل (Casting) مع عملية استدعاء الدالة.
+
+الحزمة `BenSampo\laravel-enum` توفر طريقة أفضل لجلب جميع القيم (الـ Enum Instances) للاستخدام في الواجهات، وهي الدالة `toSelectArray()` أو `toCollection()`.
+
+**الحل:**
+
+بدلاً من استخدام `\App\Enums\AdoptedSolutionStatusEnum::cases()` مباشرة داخل حلقة `foreach` في Blade، استخدم الدالة `toSelectArray()` أو `toCollection()`. `toSelectArray()` تعيد مصفوفة مناسبة للاستخدام في قائمة منسدلة (select).
+
+قم بتعديل السطر الذي يسبب المشكلة في ملف `resources/views/organization/adopted_solutions/show.blade.php`:
+
+```html
+{{-- resources/views/organization/adopted_solutions/show.blade.php --}}
+
+{{-- ... الجزء العلوي من الملف ... --}}
+
+            {{-- Form to update status and notes --}}
+            <h6 class="mt-4">Update Status and Notes</h6>
+            <form action="{{ route('organization.updateAdoptedSolutionStatus', $solution) }}" method="POST">
+                @csrf
+                @method('PUT')
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select class="form-control @error('status') is-invalid @enderror" id="status" name="status" required>
+                        {{-- استخدم toSelectArray() لجلب القيم المناسبة للقائمة المنسدلة --}}
+                        @foreach (\App\Enums\AdoptedSolutionStatusEnum::toSelectArray() as $value => $description)
+                            <option value="{{ $value }}" {{ old('status', $solution->status->value ?? $solution->status) === $value ? 'selected' : '' }}>
+                                {{ $description }}
+                            </option>
+                        @endforeach
+                        {{-- (ملاحظة: $solution->status هو الآن كائن Enum، للوصول إلى القيمة استخدم $solution->status->value) --}}
+                         {{-- تأكد من التعامل مع الحالة التي قد يكون فيها $solution->status لا يزال سلسلة نصية إذا لم يعمل الكاست بشكل كامل --}}
+
+                         {{-- الكود السابق الذي كان يسبب المشكلة:
+                         @foreach (\App\Enums\AdoptedSolutionStatusEnum::cases() as $case)
+                            <option value="{{ $case->value }}" {{ old('status', $solution->status) === $case->value ? 'selected' : '' }}>
+                                {{ $case->name }}
+                            </option>
+                         @endforeach
+                         --}}
+
+                    </select>
+                     @error('status') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                </div>
+                 <div class="form-group">
+                    <label for="organization_notes">Notes</label>
+                    <textarea class="form-control @error('organization_notes') is-invalid @enderror" id="organization_notes" name="organization_notes" rows="3">{{ old('organization_notes', $solution->organization_notes) }}</textarea>
+                     @error('organization_notes') <span class="invalid-feedback">{{ $message }}</span> @enderror
+                </div>
+                 <button type="submit" class="btn btn-primary">Update Solution Details</button>
+                  <a href="{{ route('organization.listAdoptedSolutions') }}" class="btn btn-secondary">Back to List</a>
+            </form>
+
+        </div>
+    </div>
+
+{{-- ... الجزء السفلي من الملف ... --}}
+
+@endsection
+```
+
+**شرح التعديل:**
+
+*   `\App\Enums\AdoptedSolutionStatusEnum::toSelectArray()`: هذه الدالة الثابتة في الـ Enum (من حزمة BenSampo) تعيد مصفوفة يكون مفتاحها هو قيمة الـ Enum (مثلاً 'UnderConsideration') وقيمتها هي اسم الـ Enum (مثلاً 'UnderConsideration'). هذا هو التنسيق المثالي لملء قائمة `select`.
+*   استخدمنا `$value` كـ `value` للـ `<option>` و `$description` (الذي هو اسم الـ Enum في هذه الحالة) كنص ظاهر للـ `<option>`.
+*   في التحقق من `selected`، استخدمنا `old('status', $solution->status->value ?? $solution->status)` للتعامل مع حالتين: إذا كان الـ cast يعمل بشكل صحيح، فإن `$solution->status` سيكون كائن Enum ويمكن الوصول إلى قيمته عبر `$solution->status->value`. إذا لم يعمل الـ cast لسبب ما أو كانت القيمة لا تزال في `old()`, فإنها ستكون مجرد سلسلة نصية، لذا نستخدم `?? $solution->status` للتعامل مع كلا الاحتمالين.
+
+**الخطوات اللازمة بعد هذا التعديل:**
+
+1.  احفظ ملف `resources/views/organization/adopted_solutions/show.blade.php`.
+2.  كرر نفس عملية التعديل لأي واجهة أخرى تستخدم `ProblemUrgencyEnum::cases()` أو `ProblemStatusEnum::cases()` في قوائم منسدلة (مثلاً في واجهات إنشاء/تعديل المشاكل أو واجهات المسؤول). استخدم الدوال المناسبة لكل Enum (مثلاً `ProblemUrgencyEnum::toSelectArray()`, `ProblemStatusEnum::toSelectArray()`).
+3.  تأكد من أن الـ Enum نفسه لديه تعريفات القيم الثابتة بشكل صحيح (والتي هي صحيحة في الكود الذي أرسلته).
+4.  تأكد من أن نماذج Eloquent (Problem, Solution, Account) لا تزال تستخدم `EnumCast::class . ':' . YourEnum::class` في مصفوفة `$casts` كما صححنا سابقاً.
+5.  قم بتنظيف ذاكرة التخزين المؤقت مرة أخرى:
+    ```bash
+    php artisan optimize:clear
+    composer dump-autoload
+    ```
+
+**إذا استمرت المشاكل مع الـ Enums:**
+
+إذا استمرت هذه المشاكل بعد تطبيق جميع التصحيحات وتأكيد أن الـ Casts تستخدم `EnumCast` وأن الـ Enums تستخدم دوال مثل `toSelectArray()` في الواجهات، فقد يكون هناك مشكلة أعمق في تثبيت الحزمة أو في طريقة عمل الـ Casting في بيئة Laravel الخاصة بك. في هذه الحالة، إذا كان ذلك يؤخر تقدمك بشكل كبير، **يمكنك العودة إلى استخدام القيم النصية (strings)** في النماذج والهجرات والواجهات وإزالة الـ Enum Casts بالكامل.
+
+**العودة بدون Enums (إذا لزم الأمر):**
+
+إذا قررت العودة، ستحتاج إلى:
+1.  إزالة استخدام `EnumCast` من مصفوفة `$casts` في جميع النماذج (`Account`, `Problem`, `Solution`).
+2.  إزالة استيراد الـ Enums (مثل `use App\Enums\AccountTypeEnum;`) من النماذج.
+3.  تغيير الـ Casts في النماذج إلى `'string'` أو تركها بدون cast إذا كانت حقول `varchar` أو `enum` في القاعدة.
+    ```php
+    // Example in Account.php
+    protected $casts = [
+        // ... casts أخرى ...
+        // 'account_type' => EnumCast::class . ':' . AccountTypeEnum::class, // أزل هذا
+        'account_type' => 'string', // أو لا تضع cast إذا كانتvarchar
+    ];
+    ```
+4.  في الواجهات (Views)، استخدم القائمة المنسدلة اليدوية التي وضعت كتعليق:
+    ```html
+     <select class="form-control @error('status') is-invalid @enderror" id="status" name="status" required>
+         <option value="UnderConsideration" {{ old('status', $solution->status) === 'UnderConsideration' ? 'selected' : '' }}>Under Consideration</option>
+         <option value="Adopted" {{ old('status', $solution->status) === 'Adopted' ? 'selected' : '' }}>Adopted</option>
+         {{-- ... باقي الخيارات ... --}}
+     </select>
+    ```
+5.  في المتحكمات (Controllers) وفي أي مكان آخر تستخدم فيه الـ Enums للتحقق، استخدم القيم النصية مباشرة:
+    ```php
+    // Example in AuthController
+    if ($account->account_type !== 'organization') { // بدلاً من $account->account_type->is(AccountTypeEnum::Organization)
+        abort(403, 'Access Denied. Organizations only.');
+    }
+    ```
+
+الـ Enums مع BenSampo مفيدة لسلامة النوع وقابلية القراءة، لكن إذا تسببت في مشاكل تعيق تقدمك، فالبديل هو استخدام القيم النصية مباشرة والتحقق منها في الكود (وهي الطريقة التي كانت مستخدمة على نطاق واسع قبل ظهور حزم الـ Enums).
+
+آمل أن يحل التعديل الأول باستخدام `toSelectArray()` المشكلة.
+
+---
+
+تمام، سؤال ممتاز! أنت على الطريق الصحيح في التفكير حول أين يجب أن يحدث منطق منح المكافآت (الألقاب).
+
+المنطق الذي يحسب ما إذا كان المستخدم قد استوفى شروط لقب معين **لا ينبغي أن يكون داخل `BadgeController@index`** (الدالة التي تعرض قائمة بجميع الألقاب المتاحة). هذه الدالة وظيفتها فقط عرض قائمة الألقاب وتعريفاتها. هي لا تعرف شيئًا عن المستخدمين ولا نقاطهم ولا إنجازاتهم.
+
+أيضًا، إعادة حساب نقاط المستخدم عند عرض صفحة الألقاب الخاصة به ليست هي المكان المناسب. النقاط يجب أن يتم تحديثها في الوقت الفعلي عند حدوث الإجراء الذي يكسبه نقاطاً (مثل اعتماد تعليق كحل).
+
+**أين يجب أن يتم حساب ومنح الألقاب؟**
+
+المنطق الذي يتحقق مما إذا كان المستخدم يستحق لقباً ويمنحه إياه يجب أن يتم تنفيذه في **الأوقات التي يحتمل أن يكون المستخدم قد استوفى فيها شروط اللقب**. هذه الأوقات هي:
+
+1.  **عندما تزداد نقاط المستخدم:** أي إجراء يؤدي إلى زيادة نقاط المستخدم (مثل اعتماد تعليق له كحل، أو ربما الحصول على عدد معين من upvotes على تعليقاته إذا قررت منح نقاط على ذلك لاحقاً).
+2.  **عندما يتم اعتماد أحد تعليقاته كحل:** هذه هي النقطة التي يزيد فيها عداد `required_adopted_comments_count`.
+
+**أفضل مكان لتنفيذ هذا المنطق هو في الدوال التي تسبب هذه التغييرات.**
+
+*   في حالتك الحالية، الدالة `OrganizationController@adoptComment` هي نقطة مهمة جداً. عند اعتماد تعليق، تزداد نقاط المستخدم (الشرط الأول للألقاب) ويزداد عدد تعليقاته المعتمدة (الشرط الثاني للألقاب). هذا هو المكان المثالي للتحقق من الألقاب ومنحها فوراً.
+*   إذا أضفت لاحقاً ميزة منح نقاط على Upvotes في `CommentVoteController@vote`، فستكون هذه الدالة أيضاً مكاناً مناسباً لاستدعاء نفس منطق التحقق من الألقاب بعد تحديث النقاط.
+
+**كيفية تنفيذ الدالة وأين توضع؟**
+
+يمكنك إنشاء دالة مساعدة (helper function) أو دالة كعضو (method) في نموذج `Account` نفسه للتحقق من جميع الألقاب المتاحة ومقارنة شروطها بإنجازات المستخدم الحالي. ثم تستدعي هذه الدالة من الأماكن المناسبة (مثل `OrganizationController@adoptComment`).
+
+**الخيار المقترح: دالة في نموذج `Account`**
+
+إنشاء الدالة في نموذج `Account` منطقي لأنها تتعلق بالحساب نفسه الذي يحصل على الألقاب.
+
+1.  **إضافة العلاقة اللازمة إلى نموذج `Account`:**
+    للحساب عدد من التعليقات التي قام بتأليفها. نحتاج علاقة للوصول إلى هذه التعليقات، ثم يمكننا عد التعليقات التي تم اعتمادها كحلول.
+    افتح ملف `app/Models/Account.php` وأضف العلاقة التالية:
+
+    ```php
+    // app/Models/Account.php
+
+    // ... العلاقات الأخرى ...
+
+    /**
+     * Get the comments authored by the account.
+     */
+    public function authoredComments()
+    {
+        return $this->hasMany(Comment::class, 'author_account_id');
+    }
+
+    // ... الدوال المساعدة الأخرى ...
+    ```
+
+2.  **إضافة الدالة `checkAndAwardBadges` إلى نموذج `Account`:**
+    هذه الدالة ستقوم بجلب جميع الألقاب، والتحقق لكل لقب ما إذا كان المستخدم يستوفيه ولا يملكه بعد، ثم منح اللقب إذا لزم الأمر.
+
+    افتح ملف `app/Models/Account.php` وأضف الدالة التالية:
+
+    ```php
+    <?php
+
+    namespace App\Models;
+
+    use Illuminate\Database\Eloquent\Factories\HasFactory;
+    use Illuminate\Foundation\Auth\User as Authenticatable;
+    use Illuminate\Notifications\Notifiable;
+    use Laravel\Sanctum\HasApiTokens;
+    use App\Enums\AccountTypeEnum;
+    use BenSampo\Enum\Casts\EnumCast;
+    // استيراد النماذج اللازمة داخل الدالة
+    use App\Models\Badge;
+    use App\Models\AccountBadge;
+    use App\Models\Solution;
+    use App\Models\Comment; // نحتاجها لعد التعليقات المعتمدة
+
+    class Account extends Authenticatable
+    {
+        // ... الخصائص والعلاقات الأخرى ...
+
+        /**
+         * Get the comments authored by the account.
+         */
+        public function authoredComments()
+        {
+            return $this->hasMany(Comment::class, 'author_account_id');
+        }
+
+        /**
+         * Check if the account has earned any new badges and award them.
+         * هذه الدالة يجب استدعاؤها عند حدوث أي حدث قد يؤدي إلى كسب لقب (زيادة نقاط، اعتماد تعليق).
+         */
+        public function checkAndAwardBadges(): void
+        {
+            $allBadges = Badge::all(); // جلب جميع تعريفات الألقاب المتاحة
+            $currentPoints = $this->points; // نقاط المستخدم الحالية
+
+            // حساب عدد تعليقات المستخدم التي تم اعتمادها كحلول
+            // نستخدم علاقة adoptedSolution على نموذج Comment ونبحث في جدول Solutions
+            $adoptedCommentsCount = $this->authoredComments()
+                                         ->whereHas('adoptedSolution') // تحقق ما إذا كان التعليق مرتبط بسجل في جدول solutions
+                                         ->count();
+
+            foreach ($allBadges as $badge) {
+                // التحقق من استيفاء الشروط
+                $meetsPointsCriteria = $currentPoints >= $badge->required_points;
+                $meetsAdoptedCommentsCriteria = $adoptedCommentsCount >= $badge->required_adopted_comments_count;
+
+                // التحقق مما إذا كان المستخدم يمتلك اللقب بالفعل
+                $hasBadge = $this->accountBadges()->where('badge_id', $badge->id)->exists();
+
+                // إذا تم استيفاء الشروط والمستخدم لا يملك اللقب، قم بمنحه
+                if ($meetsPointsCriteria && $meetsAdoptedCommentsCriteria && !$hasBadge) {
+                     AccountBadge::create([
+                        'account_id' => $this->id,
+                        'badge_id' => $badge->id,
+                        'awarded_at' => now(), // تعيين وقت منح اللقب الحالي
+                     ]);
+
+                     // (اختياري) يمكنك هنا بث حدث (Event) للإشارة إلى أن المستخدم كسب لقباً جديداً
+                     // مثلاً لإرسال إشعار له
+                     // event(new \App\Events\BadgeEarned($this, $badge));
+
+                     // (اختياري) تسجيل في السجلات (logging)
+                     // \Illuminate\Support\Facades\Log::info("Account #{$this->id} ({$this->username}) earned badge: {$badge->name}");
+                }
+            }
+        }
+
+        // ... الدوال المساعدة الأخرى مثل isIndividual(), isOrganization(), isAdmin() ...
+    }
+    ```
+    *ملاحظة:* تأكد من استيراد النماذج `Badge`, `AccountBadge`, `Solution`, `Comment` داخل الدالة إذا كنت تستخدمها بدون استيرادها في بداية الملف (أو قم باستيرادها). الأفضل هو استيرادها في بداية الملف.
+
+3.  **استدعاء الدالة من الأماكن المناسبة:**
+
+    *   **في `OrganizationController@adoptComment`:**
+        بعد منح النقاط لمؤلف التعليق، استدع الدالة:
+        ```php
+        // app/Http/Controllers/OrganizationController.php
+
+        // ...
+
+        public function adoptComment(Request $request, Comment $comment)
+        {
+            // ... منطق التحقق من المنظمة والتعليق ...
+
+            // إنشاء سجل الحل المعتمد
+            $solution = Solution::create([
+                // ... بيانات الحل ...
+            ]);
+
+            // --- منح نقاط لمؤلف التعليق ---
+            $authorAccount = Account::find($comment->author_account_id);
+            if ($authorAccount) {
+                $pointsToAdd = 100; // مثال: نقاط تمنح عند اعتماد تعليق كحل
+                $authorAccount->points += $pointsToAdd;
+                $authorAccount->save(); // حفظ النقاط الجديدة
+
+                // --- هنا نستدعي الدالة للتحقق من الألقاب ومنحها ---
+                $authorAccount->checkAndAwardBadges();
+                // --- نهاية استدعاء الدالة ---
+            }
+             // --- نهاية منطق منح النقاط ---
+
+            // ... إعادة التوجيه ...
+            return redirect()->route('organization.showAdoptedSolution', $solution)
+                             ->with('success', 'Comment adopted as a solution successfully! Points awarded to author.'); // يمكن تعديل الرسالة
+        }
+
+        // ... باقي دوال المتحكم ...
+        ```
+
+    *   **في `ProfileController@showMyBadges` (للتأكد أو كفحص عند العرض):**
+        يمكنك استدعاء الدالة في هذه الدالة لضمان أن المستخدم يحصل على أي لقب فاته عند زيارة صفحة الألقاب الخاصة به. هذا يعطي بعض التسامح مع الأخطاء إذا فاتك استدعاء الدالة من مكان آخر يغير النقاط أو التعليقات المعتمدة.
+
+        ```php
+        // app/Http/Controllers/ProfileController.php
+
+        // ...
+
+        /**
+         * Display the authenticated user's badges.
+         */
+         public function showMyBadges()
+         {
+             $account = Auth::user();
+
+             // --- استدعاء الدالة للتحقق من الألقاب ومنحها ---
+             // هذا يضمن تحديث قائمة الألقاب عند زيارة الصفحة
+             $account->checkAndAwardBadges();
+
+             // --- ثم جلب الألقاب التي حصل عليها للعرض ---
+             // يجب إعادة تحميل العلاقة بعد استدعاء الدالة في حال تم منح ألقاب جديدة
+             $account->load('accountBadges.badge');
+
+             $badges = $account->accountBadges; // مجموعة نماذج AccountBadge
+
+             // الواجهة: resources/views/profiles/my_badges.blade.php
+             return view('profiles.my_badges', compact('account', 'badges'));
+         }
+
+        // ... باقي دوال المتحكم ...
+        ```
+
+    *   **في أي مكان آخر يتم فيه تغيير نقاط المستخدم أو عدد تعليقاته المعتمدة:**
+        إذا أضفت أي ميزة أخرى تزيد من نقاط المستخدم (مثل التصويت على التعليقات إذا كان Upvote يمنح نقطة)، استدع `Auth::user()->checkAndAwardBadges()` (أو `$userAccount->checkAndAwardBadges()`) بعد تحديث النقاط.
+
+**لماذا لم يحصل المستخدم على الألقاب برغم أن لديه نقاط كافية في الـ Seeder؟**
+
+الـ Seeder يقوم بإنشاء البيانات (الحسابات، النقاط، الألقاب، التعليقات، الحلول المعتمدة)، ولكنه لا يقوم تلقائيًا بتشغيل منطق التحقق من الألقاب ومنحها. أنت قمت بإنشاء بيانات الحسابات والألقاب بشكل منفصل. حتى لو كانت نقاط مستخدم وهمي كافية، فإن سجل الربط في جدول `account_badges` لم يتم إنشاؤه إلا إذا قمت بإنشاء سجلات يدوياً في `AccountBadgesSeeder` أو إذا تم استدعاء الدالة التي تمنح الألقاب (التي أنشأناها الآن) أثناء تشغيل الـ Seeder.
+
+بتطبيق الدالة `checkAndAwardBadges()` واستدعائها في الأماكن الصحيحة (خاصة في `ProfileController@showMyBadges` مبدئياً وفي `OrganizationController@adoptComment`)، سيتم التحقق من شروط الألقاب ومنح المستخدم أي ألقاب يستحقها عند زيارة صفحة الألقاب أو عند اعتماد تعليق له كحل.
+
+الآن، عندما تزور صفحة My Badges، سيتم تشغيل `checkAndAwardBadges()`، وسيتم فحص إذا كان لدى المستخدم 350 نقطة (نعم) وهل هذا كافٍ لأي لقب (نعم، Rising Thinker يتطلب 100). إذا لم يكن يمتلك هذا اللقب في جدول `account_badges`، فسيتم إنشاؤه وسيظهر في الصفحة بعد إعادة تحميل العلاقة.
+
+---
+
+تمام، فهمت طلبك. تريد إضافة رابط في قائمة التعليقات يؤدي إلى صفحة ملف شخصي عام للمستخدم أو المنظمة التي كتبت التعليق. هذه الصفحة يجب أن تظهر بعض المعلومات بشكل عام للجميع (حتى لو لم يكونوا مسجلين دخول أو كانوا مستخدمين آخرين)، ولكن تخفي المعلومات الحساسة (مثل رقم الهاتف).
+
+لقد قمت بالفعل بتعريف مسار `profiles.show` (`Route::get('/profiles/{account}', [ProfileController::class, 'show'])->name('profiles.show');`) ومتحكم `ProfileController@show` الذي يستقبل نموذج `Account` ويحمّل بيانات `UserProfile` أو `OrganizationProfile` المرتبطة. هذا هو المسار والمتحكم المثالي لاستخدامه.
+
+الآن، سنقوم بتعديل الأماكن التالية:
+
+1.  **ملف الواجهة الجزئي `partials.comments.blade.php`:** لإضافة الرابط حول اسم مؤلف التعليق.
+2.  **ملف المتحكم `ProfileController.php`:** للتأكد من تحميل الألقاب أيضاً عند عرض الملف الشخصي العام.
+3.  **ملف الواجهة `profiles.show.blade.php`:** لإضافة منطق إخفاء/إظهار الحقول بناءً على ما إذا كان المستخدم الذي يعرض الصفحة هو صاحب الملف أم لا.
+
+**الخطوات:**
+
+**1. تعديل ملف `resources/views/partials/comments.blade.php`:**
+
+سنقوم بلف اسم المستخدم/المنظمة في التعليقات برابط يشير إلى صفحة عرض الملف الشخصي (`profiles.show`)، مع تمرير نموذج الحساب (`$comment->author`).
+
+```html
+{{-- resources/views/partials/comments.blade.php --}}
+
+@foreach ($comments as $comment)
+    <div class="media mb-4 border p-3" id="comment-{{ $comment->id }}" style="margin-left: {{ ($comment->parent_comment_id !== null) ? '40px' : '0' }};">
+        @if ($comment->author->isIndividual() && $comment->author->userProfile)
+             {{-- يمكنك هنا إضافة صورة المستخدم/المنظمة إذا كانت متوفرة --}}
+             <img src="https://via.placeholder.com/50?text={{ substr($comment->author->userProfile->first_name ?? $comment->author->username, 0, 1) }}" class="mr-3 rounded-circle" alt="User Avatar"> {{-- صورة وهمية --}}
+        @elseif ($comment->author->isOrganization() && $comment->author->organizationProfile)
+             <img src="https://via.placeholder.com/50?text={{ substr($comment->author->organizationProfile->name ?? $comment->author->username, 0, 1) }}" class="mr-3 rounded-circle" alt="Organization Logo"> {{-- صورة وهمية --}}
+        @else
+             <img src="https://via.placeholder.com/50?text=?" class="mr-3 rounded-circle" alt="Avatar"> {{-- صورة وهمية --}}
+        @endif
+
+        <div class="media-body">
+            <h5 class="mt-0">
+                {{-- إضافة الرابط حول اسم المستخدم --}}
+                <a href="{{ route('profiles.show', $comment->author) }}" class="text-dark">{{ $comment->author->username ?? 'N/A' }}</a>
+                <small class="text-muted">- {{ $comment->created_at->diffForHumans() }}</small>
+            </h5>
+
+            <p>{{ $comment->content }}</p>
+
+            {{-- Comment Votes (Stack Overflow style) --}}
+            <div class="d-flex align-items-center">
+                @auth
+                     {{-- Upvote Button --}}
+                    <form action="{{ route('comments.vote', $comment) }}" method="POST" class="d-inline vote-form">
+                        @csrf
+                        <input type="hidden" name="vote_value" value="1">
+                        <button type="submit" class="btn btn-sm btn-outline-success @if(Auth::user()->commentVotes()->where('comment_id', $comment->id)->where('vote_value', 1)->exists()) active @endif">
+                            <i class="fas fa-arrow-up"></i>
+                        </button>
+                    </form>
+
+                     {{-- Vote Count (will update via JS eventually) --}}
+                    <span class="mx-2 font-weight-bold comment-vote-count">{{ $comment->total_votes }}</span>
+
+                     {{-- Downvote Button --}}
+                    <form action="{{ route('comments.vote', $comment) }}" method="POST" class="d-inline vote-form">
+                        @csrf
+                        <input type="hidden" name="vote_value" value="-1">
+                        <button type="submit" class="btn btn-sm btn-outline-danger @if(Auth::user()->commentVotes()->where('comment_id', $comment->id)->where('vote_value', -1)->exists()) active @endif">
+                            <i class="fas fa-arrow-down"></i>
+                        </button>
+                    </form>
+
+                    {{-- Reply Button --}}
+                    <button class="btn btn-sm btn-link ml-2 reply-button" data-comment-id="{{ $comment->id }}">Reply</button>
+
+                    {{-- Edit/Delete buttons for owner or admin --}}
+                     @if (Auth::user()->id === $comment->author_account_id || Auth::user()->isAdmin())
+                         <a href="{{ route('comments.edit', $comment) }}" class="btn btn-sm btn-link ml-2">Edit</a>
+                         <form action="{{ route('comments.destroy', $comment) }}" method="POST" class="d-inline">
+                             @csrf
+                             @method('DELETE')
+                             <button type="submit" class="btn btn-sm btn-link text-danger" onclick="return confirm('Are you sure you want to delete this comment?');">Delete</button>
+                         </form>
+                     @endif
+
+                     {{-- Adopt as Solution Button (for Organizations only) --}}
+                     @if (Auth::user()->isOrganization())
+                         @if (!$comment->adoptedSolution) {{-- Show only if not already adopted --}}
+                              <form action="{{ route('organization.adoptComment', $comment) }}" method="POST" class="d-inline ml-2">
+                                 @csrf
+                                 <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Are you sure your organization wants to adopt this comment as a solution?');">Adopt as Solution</button>
+                             </form>
+                         @else {{-- Indicate if already adopted and by whom --}}
+                            <span class="badge badge-info ml-2">Adopted by {{ $comment->adoptedSolution->adoptingOrganization->name ?? 'Organization' }}</span>
+                         @endif
+                     @endif
+
+                @endauth
+                 @guest {{-- Display votes even for guests --}}
+                     <span class="ml-2 font-weight-bold">{{ $comment->total_votes }} votes</span>
+                @endguest
+
+            </div>
+
+            {{-- Reply Form (initially hidden) --}}
+             @auth
+                <div class="reply-form mt-3" id="reply-form-{{ $comment->id }}" style="display: none;">
+                    <h6>Reply to {{ $comment->author->username }}</h6>
+                    <form action="{{ route('comments.store') }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="problem_id" value="{{ $comment->problem_id }}">
+                        <input type="hidden" name="parent_comment_id" value="{{ $comment->id }}">
+                        <div class="form-group">
+                            <textarea name="content" class="form-control" rows="2" required>{{ old('content') }}</textarea>
+                            @error('content') <span class="text-danger">{{ $message }}</span> @enderror
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-primary">Submit Reply</button>
+                    </form>
+                </div>
+            @endauth
+
+
+            {{-- Display replies recursively --}}
+            @if ($comment->replies->isNotEmpty())
+                <div class="mt-4">
+                    @include('partials.comments', ['comments' => $comment->replies])
+                </div>
+            @endif
+
+        </div>
+    </div>
+@endforeach
+
+{{-- Simple JavaScript to toggle reply forms --}}
+{{-- Add this script once in your main layout or a dedicated script file loaded on the page --}}
+{{-- <script>
+     document.addEventListener('DOMContentLoaded', function () {
+         document.querySelectorAll('.reply-button').forEach(button => {
+             button.addEventListener('click', function () {
+                 const commentId = this.dataset.commentId;
+                 const replyForm = document.getElementById('reply-form-' + commentId);
+                 if (replyForm.style.display === 'none') {
+                     replyForm.style.display = 'block';
+                 } else {
+                     replyForm.style.display = 'none';
+                 }
+             });
+         });
+         // Optional: Simple AJAX for votes
+     });
+</script> --}}
+```
+
+**2. تعديل ملف `app/Http/Controllers/ProfileController.php`:**
+
+تأكد أن الدالة `show` تحمّل العلاقة الخاصة بالألقاب (`accountBadges.badge`)، وهذا ما فعلناه بالفعل في الخطوات السابقة، لذا لا حاجة لتعديل هنا.
+
+```php
+// app/Http/Controllers/ProfileController.php
+
+// ... use statements ...
+
+class ProfileController extends Controller
+{
+    // ... __construct() ...
+
+    /**
+     * Display a user or organization profile.
+     */
+    public function show(Account $account)
+    {
+        // تحميل العلاقة المناسبة (UserProfile أو OrganizationProfile)
+        // تأكد من تحميل الألقاب أيضاً هنا
+        $account->load('userProfile', 'organizationProfile', 'accountBadges.badge'); // العلاقة accountBadges محملة
+
+        // تحديد نوع الملف الشخصي لعرض الواجهة المناسبة
+        $profile = $account->isIndividual() ? $account->userProfile : $account->organizationProfile;
+
+        if (!$profile) {
+             // يمكن معالجة الحسابات التي لا تزال بدون ملف شخصي هنا،
+             // مثلاً عرض رسالة أو إعادة التوجيه
+             abort(404, 'Profile not found.');
+        }
+
+        // لا نحتاج لحساب الألقاب ومنحها هنا، فهذا يتم عند كسب النقاط أو زيارة صفحة الألقاب الخاصة بالمستخدم.
+        // هنا فقط نعرض الألقاب الموجودة بالفعل في القاعدة.
+
+
+        // ستنشئ الواجهة لاحقاً: resources/views/profiles/show.blade.php
+        return view('profiles.show', compact('account', 'profile'));
+    }
+
+    // ... باقي الدوال (edit, update, showMyBadges) ...
+}
+```
+
+**3. تعديل ملف `resources/views/profiles/show.blade.php`:**
+
+سنضيف منطق التحقق لمعرفة ما إذا كان المستخدم الحالي (المسجل دخوله) هو نفس المستخدم الذي يتم عرض ملفه الشخصي. بناءً على ذلك، سنقوم بإخفاء أو إظهار الحقول.
+
+```html
+@extends('layouts.app')
+
+@section('title', ($account->isIndividual() ? 'User Profile' : 'Organization Profile') . ': ' . ($profile->name ?? $profile->first_name ?? $account->username))
+
+@section('content')
+    {{-- تحديد ما إذا كان المستخدم الحالي هو صاحب الملف --}}
+    @php
+        $isOwner = Auth::check() && (Auth::id() === $account->id);
+    @endphp
+
+    <h1>Profile: {{ $profile->name ?? $profile->first_name ?? $account->username }}</h1>
+
+     {{-- زر تعديل الملف الشخصي يظهر فقط إذا كان المستخدم هو صاحب الملف --}}
+     @auth
+          @if ($isOwner)
+              <p><a href="{{ route('profile.edit') }}" class="btn btn-secondary">Edit My Profile</a></p>
+          @endif
+     @endauth
+
+
+    <div class="card mb-3">
+        <div class="card-header">Account Information</div>
+        <div class="card-body">
+            <p><strong>Username:</strong> {{ $account->username }}</p>
+            <p><strong>Account Type:</strong> {{ ucfirst($account->account_type->value ?? $account->account_type) }}</p> {{-- استخدام value للـ Enum --}}
+            <p><strong>Points:</strong> {{ $account->points }}</p>
+             <p><strong>Joined:</strong> {{ $account->created_at->format('Y-m-d') }}</p>
+
+            {{-- إظهار البريد الإلكتروني فقط للمالك أو المسؤول --}}
+             @if ($isOwner || (Auth::check() && Auth::user()->isAdmin()))
+                <p><strong>Email:</strong> {{ $account->email }}</p>
+             @endif
+
+
+        </div>
+    </div>
+
+    <div class="card mb-3">
+         <div class="card-header">{{ $account->isIndividual() ? 'Personal' : 'Organization' }} Details</div>
+         <div class="card-body">
+             @if ($account->isIndividual())
+                  {{-- Display User Profile Fields --}}
+                 <p><strong>Full Name:</strong> {{ $profile->first_name ?? 'N/A' }} {{ $profile->last_name ?? 'N/A' }}</p>
+
+                 {{-- إظهار رقم الهاتف فقط للمالك أو المسؤول --}}
+                 @if ($isOwner || (Auth::check() && Auth::user()->isAdmin()))
+                     <p><strong>Phone:</strong> {{ $profile->phone ?? 'N/A' }}</p>
+                 @endif
+
+                 <p><strong>Bio:</strong> {{ $profile->bio ?? 'N/A' }}</p>
+             @elseif ($account->isOrganization())
+                 {{-- Display Organization Profile Fields --}}
+                <p><strong>Organization Name:</strong> {{ $profile->name ?? 'N/A' }}</p>
+                 <p><strong>Website:</strong> <a href="{{ $profile->website_url ?? '#' }}">{{ $profile->website_url ?? 'N/A' }}</a></p>
+
+                 {{-- إظهار البريد الإلكتروني للاتصال بالمنظمة (هذا قد يكون عاماً أو خاصاً حسب الحاجة) --}}
+                 {{-- لنفترض أنه عام مبدئياً --}}
+                 <p><strong>Contact Email:</strong> {{ $profile->contact_email ?? 'N/A' }}</p>
+
+                <p><strong>Info:</strong> {{ $profile->info ?? 'N/A' }}</p>
+             @endif
+
+             {{-- Display Address if available (يمكن إظهاره بشكل عام أو جعله خاصاً) --}}
+              @if ($profile->address)
+                 <p><strong>Address:</strong>
+                     {{ $profile->address->street_address ?? '' }}@if($profile->address->street_address), @endif
+                     {{ $profile->address->city->name ?? '' }}@if($profile->address->city->name), @endif
+                     {{ $profile->address->city->country->name ?? '' }}
+                     {{-- إظهار الرمز البريدي فقط للمالك أو المسؤول --}}
+                     @if ($isOwner || (Auth::check() && Auth::user()->isAdmin()))
+                         - {{ $profile->address->postal_code ?? '' }}
+                     @endif
+                 </p>
+             @endif
+         </div>
+    </div>
+
+     {{-- Display Badges for the ACCOUNT BEING VIEWED --}}
+     @if ($account->accountBadges->isNotEmpty())
+          <div class="card mb-3">
+             <div class="card-header">Earned Badges</div>
+             <div class="card-body">
+                 <div class="row">
+                     @foreach ($account->accountBadges as $accountBadge)
+                         <div class="col-auto mb-3">
+                             <div class="text-center">
+                                 @if ($accountBadge->badge->image_url)
+                                     <img src="{{ asset($accountBadge->badge->image_url) }}" alt="{{ $accountBadge->badge->name }}" style="width: 50px; height: 50px;">
+                                 @else
+                                      <div style="width: 50px; height: 50px; background-color: #ccc; display: inline-block;"></div> {{-- Placeholder if no image --}}
+                                 @endif
+                                 <p class="mt-1 mb-0"><small>{{ $accountBadge->badge->name }}</small></p>
+                                  <p><small class="text-muted">Awarded: {{ $accountBadge->awarded_at->format('Y-m-d') }}</small></p>
+                             </div>
+                         </div>
+                     @endforeach
+                 </div>
+                 {{-- رابط "View All My Badges" يجب أن يظهر فقط إذا كان المستخدم هو صاحب الملف --}}
+                  @if ($isOwner)
+                    <p><a href="{{ route('profile.badges') }}" class="btn btn-sm btn-info">View All My Badges</a></p>
+                 @else
+                     <p><a href="{{ route('badges.index') }}">View All Available Badges</a></p> {{-- رابط عام لقائمة الألقاب --}}
+                 @endif
+             </div>
+         </div>
+     @else
+          <div class="card mb-3">
+             <div class="card-header">Earned Badges</div>
+             <div class="card-body">
+                <p>{{ $account->username }} hasn't earned any badges yet.</p>
+                <p><a href="{{ route('badges.index') }}">View All Available Badges</a></p>
+             </div>
+         </div>
+     @endif
+
+
+     {{-- يمكنك إضافة قسم لعرض المشاكل التي نشرها هذا الحساب (إذا كانت عامة) --}}
+     {{-- أو التعليقات التي كتبها (إذا كانت عامة) --}}
+
+@endsection
+```
+
+**شرح التعديلات في الواجهة:**
+
+*   تم إضافة متغير Blade `@php $isOwner = Auth::check() && (Auth::id() === $account->id); @endphp` للتحقق بسهولة ما إذا كان المستخدم الحالي هو صاحب الملف.
+*   تم استخدام `@if ($isOwner)` أو `@if ($isOwner || (Auth::check() && Auth::user()->isAdmin()))` لإحاطة الحقول التي يجب أن تكون مرئية فقط للمالك أو للمسؤول.
+*   تم التأكيد على أن عرض الألقاب هو للألقاب المرتبطة بالـ `$account` الذي يتم عرضه (`$account->accountBadges`).
+*   تم تعديل رابط "View All My Badges" ليظهر فقط للمالك، أو يتم عرض رابط عام لقائمة الألقاب المتاحة للآخرين.
+*   تم إضافة placeholders بسيطة للصور إذا كانت غير موجودة.
+
+**لجعل هذا يعمل:**
+
+1.  احفظ التعديلات في ملفي `partials.comments.blade.php` و `profiles.show.blade.php`.
+2.  تأكد من أن `ProfileController@show` يحمّل العلاقة `accountBadges.badge`.
+3.  تأكد من أن `Auth::check()` تعمل بشكل صحيح وأن نظام المصادقة يعمل كما هو متوقع.
+4.  تأكد من أن الـ Middleware `isAdmin` يعمل بشكل صحيح للتحقق من نوع حساب المسؤول.
+5.  قم بتنظيف الكاش: `php artisan optimize:clear`.
+
+الآن، عند عرض مشكلة، يمكنك النقر على اسم مؤلف التعليق للانتقال إلى ملفه الشخصي. إذا كنت مسجل دخول كصاحب الملف، سترى جميع المعلومات. إذا كنت مسجل دخول كمستخدم آخر أو لم تكن مسجلاً، فسترى نسخة محدودة من المعلومات.
+
+---
+
+
+
+
+

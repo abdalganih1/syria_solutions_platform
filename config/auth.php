@@ -15,7 +15,7 @@ return [
 
     'defaults' => [
         'guard' => 'web',
-        'passwords' => 'users',
+        'passwords' => 'accounts', // تأكد أن هذا يشير إلى قسم passwords الصحيح
     ],
 
     /*
@@ -38,8 +38,9 @@ return [
     'guards' => [
         'web' => [
             'driver' => 'session',
-            'provider' => 'users',
+            'provider' => 'accounts', // <--- يجب تغيير هذا من 'users' إلى 'accounts'
         ],
+        // يمكنك إضافة Guards أخرى هنا إذا لزم الأمر (مثل 'api')
     ],
 
     /*
@@ -60,14 +61,15 @@ return [
     */
 
     'providers' => [
-        'users' => [
+        'accounts' => [ // <--- اسم Provider الصحيح الذي يشير إلى نموذج Account
             'driver' => 'eloquent',
-            'model' => App\Models\User::class,
+            'model' => App\Models\Account::class, // <--- يشير إلى نموذج Account
         ],
 
+        // تأكد من حذف أو تعطيل تعريف Provider 'users' القديم إذا كان موجودًا هنا
         // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
+        //     'driver' => 'eloquent',
+        //     'model' => App\Models\User::class, // هذا النموذج غير موجود الآن
         // ],
     ],
 
@@ -91,12 +93,13 @@ return [
     */
 
     'passwords' => [
-        'users' => [
-            'provider' => 'users',
-            'table' => 'password_reset_tokens',
+        'accounts' => [ // <--- تأكد أن هذا يشير إلى الـ Provider الصحيح
+            'provider' => 'accounts', // <--- يجب تغيير هذا من 'users' إلى 'accounts'
+            'table' => 'password_reset_tokens', // جدول رموز استعادة كلمة المرور (يمكن تركه أو تغييره لaccount_password_reset_tokens إذا أردت فصله)
             'expire' => 60,
             'throttle' => 60,
         ],
+        // تأكد من حذف أو تعطيل تعريف passwords 'users' القديم إذا كان موجودًا هنا
     ],
 
     /*
