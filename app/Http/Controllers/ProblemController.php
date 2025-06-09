@@ -136,7 +136,7 @@ class ProblemController extends Controller
          try {
             $this->authorize('view', $problem);
          } catch (AuthorizationException $e) {
-             abort(404); // أو 403 حسب الرغبة، 404 يخفي وجودها تماماً
+             abort(403); // أو 403 حسب الرغبة، 404 يخفي وجودها تماماً
          }
 
 
